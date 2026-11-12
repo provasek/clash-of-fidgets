@@ -1,12 +1,13 @@
 :root {
-    --bg-dark: #090d16;
-    --hud-bg: rgba(15, 23, 42, 0.94);
+    --bg-dark: #080c14;
+    --hud-bg: rgba(13, 19, 33, 0.94);
     --border-color: rgba(255, 255, 255, 0.12);
     --gold: #f59e0b;
     --gold-glow: rgba(245, 158, 11, 0.35);
-    --blue-accent: #38bdf8;
-    --red-enemy: #ef4444;
-    --green-farm: #22c55e;
+    --blue-solaria: #38bdf8;
+    --red-khardurn: #ef4444;
+    --cyan-aquaria: #06b6d4;
+    --green-sylvaen: #10b981;
     --font-main: 'Outfit', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
 }
@@ -75,7 +76,7 @@ body, html {
     width: 40px;
     height: 40px;
     background: radial-gradient(circle, #0284c7, #0369a1);
-    border: 2px solid var(--blue-accent);
+    border: 2px solid var(--blue-solaria);
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -136,32 +137,52 @@ body, html {
 
 .hud-buttons {
     display: flex;
-    gap: 10px;
+    gap: 8px;
+    align-items: center;
 }
 .hud-btn {
     border: none;
     border-radius: 12px;
-    padding: 8px 18px;
+    padding: 8px 16px;
     font-family: var(--font-main);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 800;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .hud-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(0,0,0,0.4);
 }
+.diplo-btn {
+    background: rgba(30, 41, 59, 0.9);
+    border: 1px solid #c084fc;
+    color: #f3e8ff;
+}
+.diplo-btn:hover { background: #7e22ce; }
 .tech-btn {
     background: rgba(30, 41, 59, 0.9);
-    border: 1px solid var(--blue-accent);
+    border: 1px solid var(--blue-solaria);
     color: #e0f2fe;
 }
-.tech-btn:hover {
-    background: #0284c7;
+.tech-btn:hover { background: #0284c7; }
+.hud-icon-btn {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    color: #fff;
+    width: 38px;
+    height: 38px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.hud-icon-btn:hover {
+    background: rgba(51, 65, 85, 1);
+    transform: scale(1.05);
 }
 .end-turn-btn {
     background: linear-gradient(135deg, #f59e0b, #d97706);
@@ -205,7 +226,7 @@ body, html {
     padding-bottom: 4px;
 }
 .minimap-header #minimap-coords {
-    color: var(--blue-accent);
+    color: var(--blue-solaria);
     font-family: var(--font-mono);
 }
 #minimap-canvas {
@@ -216,21 +237,22 @@ body, html {
 }
 .minimap-legend {
     display: flex;
-    gap: 8px;
-    font-size: 9px;
+    gap: 6px;
+    font-size: 8px;
     color: #94a3b8;
-    font-weight: 600;
+    font-weight: 700;
     align-items: center;
 }
 .minimap-legend .dot {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     display: inline-block;
 }
-.minimap-legend .dot.player { background: var(--blue-accent); box-shadow: 0 0 4px var(--blue-accent); }
-.minimap-legend .dot.enemy { background: var(--red-enemy); box-shadow: 0 0 4px var(--red-enemy); }
-.minimap-legend .dot.city { background: var(--gold); box-shadow: 0 0 4px var(--gold); }
+.minimap-legend .dot.player { background: var(--blue-solaria); }
+.minimap-legend .dot.enemy-red { background: var(--red-khardurn); }
+.minimap-legend .dot.enemy-cyan { background: var(--cyan-aquaria); }
+.minimap-legend .dot.enemy-green { background: var(--green-sylvaen); }
 
 /* Garrison Bar inside City Dock */
 .garrison-banner {
@@ -279,7 +301,8 @@ body, html {
     gap: 12px;
     z-index: 100;
     box-shadow: 0 12px 40px rgba(0,0,0,0.7);
-    min-width: 380px;
+    min-width: 420px;
+    max-width: 85vw;
     animation: dockUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .dock-panel.hidden {
@@ -325,6 +348,7 @@ body, html {
 .dock-actions {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
 }
 .action-chip {
     background: rgba(30, 41, 59, 0.8);
@@ -340,7 +364,7 @@ body, html {
     font-weight: 700;
 }
 .action-chip:hover {
-    border-color: var(--blue-accent);
+    border-color: var(--blue-solaria);
     transform: translateY(-2px);
     background: rgba(51, 65, 85, 0.9);
 }
@@ -355,7 +379,7 @@ body, html {
 }
 
 /* =========================================
-   TECH TREE MODAL (Polytopia Style)
+   TECH TREE & DIPLOMACY MODALS
    ========================================= */
 .modal-backdrop {
     position: absolute;
@@ -384,7 +408,9 @@ body, html {
     border: 1px solid var(--border-color);
     border-radius: 20px;
     width: 90%;
-    max-width: 720px;
+    max-width: 780px;
+    max-height: 85vh;
+    overflow-y: auto;
     padding: 24px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
 }
@@ -410,7 +436,7 @@ body, html {
 
 .tech-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 14px;
 }
 .tech-node {
@@ -425,7 +451,7 @@ body, html {
     transition: all 0.2s;
 }
 .tech-node:hover:not(.unlocked) {
-    border-color: var(--blue-accent);
+    border-color: var(--blue-solaria);
     transform: translateY(-2px);
     background: rgba(51, 65, 85, 0.8);
 }
@@ -435,33 +461,94 @@ body, html {
     cursor: default;
 }
 .tech-icon {
-    font-size: 32px;
+    font-size: 30px;
 }
 .tech-details {
     display: flex;
     flex-direction: column;
 }
 .tech-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 800;
 }
 .tech-desc {
-    font-size: 11px;
+    font-size: 10px;
     color: #94a3b8;
     margin-top: 2px;
+    line-height: 1.3;
 }
 .tech-cost {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
     color: var(--gold);
     margin-top: 4px;
 }
 
+/* DIPLOMACY CARDS */
+.diplo-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.diplo-card {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.diplo-faction-meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.diplo-crest {
+    font-size: 32px;
+}
+.diplo-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* RUINS MODAL */
+.ruins-card {
+    max-width: 460px;
+    text-align: center;
+    padding: 30px;
+}
+.ruin-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+.ruins-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
+.choice-btn {
+    background: rgba(30, 41, 59, 0.9);
+    border: 1px solid var(--blue-solaria);
+    color: #fff;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.choice-btn:hover {
+    background: #0284c7;
+    transform: translateY(-2px);
+}
+
 /* VICTORY CARD */
 .victory-card {
     text-align: center;
-    max-width: 480px;
+    max-width: 500px;
     padding: 36px;
 }
 .vic-icon {
@@ -485,7 +572,7 @@ body, html {
     font-family: var(--font-mono);
 }
 .final-score strong {
-    color: var(--blue-accent);
+    color: var(--blue-solaria);
 }
 
 /* TOASTS */
@@ -502,7 +589,7 @@ body, html {
 }
 .civ-toast {
     background: rgba(15, 23, 42, 0.95);
-    border: 1px solid var(--blue-accent);
+    border: 1px solid var(--blue-solaria);
     color: #f1f5f9;
     padding: 8px 18px;
     border-radius: 20px;

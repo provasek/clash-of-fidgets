@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Polytropia: Civilizace Hvězd (Tahová 4X Strategie)</title>
+    <title>Polytropia: Civilizace Hvězd (Kompletní 4X Impérium)</title>
     <!-- Modern Clean Minimalist Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,18 +20,18 @@
         <!-- Clean Modern 4X Strategy HUD -->
         <header id="civ-hud">
             <div class="tribe-badge">
-                <div class="tribe-crest" id="tribe-crest">🔷</div>
+                <div class="tribe-crest" id="tribe-crest">☀️</div>
                 <div class="tribe-meta">
                     <div class="tribe-name" id="tribe-name">Impérium Solaria</div>
-                    <div class="turn-counter">TAH <span id="hud-turn-num">1</span> / 30 • Skóre: <strong id="hud-score">120</strong></div>
+                    <div class="turn-counter">TAH <span id="hud-turn-num">1</span> / 50 • Skóre: <strong id="hud-score">150</strong></div>
                 </div>
             </div>
 
             <div class="economy-cluster">
                 <div class="star-pill" title="Hvězdy - univerzální produkce tvých měst pro výzkum a výcvik">
                     <span class="icon">⭐</span>
-                    <span class="stars-val" id="hud-stars">10</span>
-                    <span class="stars-income" id="hud-income">+4/kolo</span>
+                    <span class="stars-val" id="hud-stars">15</span>
+                    <span class="stars-income" id="hud-income">+5/kolo</span>
                 </div>
                 <div class="cities-pill" title="Počet kontrolovaných měst">
                     <span class="icon">🏛️</span>
@@ -40,10 +40,16 @@
             </div>
 
             <div class="hud-buttons">
-                <button class="hud-btn tech-btn" id="btn-open-tech" title="Otevřít Strom Technologií">
-                    🔬 Strom Technologií
+                <button class="hud-btn diplo-btn" id="btn-open-diplo" title="Diplomacie a Přehled Frakcí (Klávesa D)">
+                    🤝 Diplomacie
                 </button>
-                <button class="hud-btn end-turn-btn" id="btn-end-turn" title="Ukončit tah a nechat hrát soupeře">
+                <button class="hud-btn tech-btn" id="btn-open-tech" title="Otevřít Strom Technologií (Klávesa T)">
+                    🔬 Strom Vědy
+                </button>
+                <button class="hud-icon-btn" id="btn-toggle-music" title="Ambientní Hudba (Zapnuto/Vypnuto)">
+                    🎵
+                </button>
+                <button class="hud-btn end-turn-btn" id="btn-end-turn" title="Ukončit tah (Enter / Mezerník)">
                     <span>UKONČIT TAH</span> ⏳
                 </button>
             </div>
@@ -52,14 +58,15 @@
         <!-- Radar Minimap Component (Corner HUD) -->
         <div id="minimap-panel" class="minimap-box">
             <div class="minimap-header">
-                <span>RADAR SVĚTA</span>
-                <span id="minimap-coords">[3, 3]</span>
+                <span>RADAR SVĚTA 4X</span>
+                <span id="minimap-coords">[2, 2]</span>
             </div>
-            <canvas id="minimap-canvas" width="140" height="140"></canvas>
+            <canvas id="minimap-canvas" width="144" height="144"></canvas>
             <div class="minimap-legend">
-                <span class="dot player"></span> Hráč
-                <span class="dot enemy"></span> Nepřítel
-                <span class="dot city"></span> Město
+                <span class="dot player"></span> Solaria
+                <span class="dot enemy-red"></span> Khar-Durn
+                <span class="dot enemy-cyan"></span> Aquaria
+                <span class="dot enemy-green"></span> Sylvaen
             </div>
         </div>
 
@@ -70,26 +77,45 @@
                     <span class="dock-icon" id="dock-icon">🗡️</span>
                     <div>
                         <h3 id="dock-title">Válečník</h3>
-                        <span class="dock-sub" id="dock-subtitle">Pěší průzkumná jednotka (HP: 10/10)</span>
+                        <span class="dock-sub" id="dock-subtitle">Pěší jednotka (HP: 10/10)</span>
                     </div>
                 </div>
                 <button class="dock-close-btn" id="btn-close-dock">&times;</button>
             </div>
             <div class="dock-actions" id="dock-actions-shelf">
-                <!-- Buttons injected via JavaScript -->
+                <!-- Injected via JavaScript -->
             </div>
         </div>
 
-        <!-- Tech Tree Modal (Polytopia Style Clean Nodes) -->
+        <!-- Tech Tree Modal (9 Technologií včetně Obléhání a Hvězdné brány) -->
         <div id="tech-modal" class="modal-backdrop hidden">
             <div class="modal-card">
                 <div class="modal-head">
-                    <h2>🔬 STROM TECHNOLOGIÍ</h2>
+                    <h2>🔬 STROM CIVILIZAČNÍCH TECHNOLOGIÍ</h2>
                     <button class="close-x" id="btn-close-tech">&times;</button>
                 </div>
-                <div class="tech-grid" id="tech-grid">
-                    <!-- Injected via JavaScript -->
+                <div class="tech-grid" id="tech-grid"></div>
+            </div>
+        </div>
+
+        <!-- Diplomacy & Factions Modal -->
+        <div id="diplo-modal" class="modal-backdrop hidden">
+            <div class="modal-card">
+                <div class="modal-head">
+                    <h2>🤝 DIPLOMACIE A SVĚTOVÉ FRAKCE</h2>
+                    <button class="close-x" id="btn-close-diplo">&times;</button>
                 </div>
+                <div class="diplo-list" id="diplo-list"></div>
+            </div>
+        </div>
+
+        <!-- Ancient Ruins Discovery Choice Modal -->
+        <div id="ruins-modal" class="modal-backdrop hidden">
+            <div class="modal-card ruins-card">
+                <div class="ruin-icon">🏛️</div>
+                <h2>OBJEV STAROVĚKÝCH RUIN!</h2>
+                <p id="ruins-desc">Tvoji průzkumníci vstoupili do pradávné svatyně. Jak naložíš s nálezem?</p>
+                <div class="ruins-choices" id="ruins-choices"></div>
             </div>
         </div>
 
@@ -98,8 +124,8 @@
             <div class="modal-card victory-card">
                 <div class="vic-icon" id="vic-icon">🏆</div>
                 <h1 id="vic-title">SLAVNÉ VÍTĚZSTVÍ!</h1>
-                <p id="vic-desc">Tvá civilizace ovládla známý svět a rozdrtila všechny rivaly.</p>
-                <div class="final-score">Konečné skóre: <strong id="vic-score">2,450</strong></div>
+                <p id="vic-desc">Tvá civilizace ovládla známý svět a vybudovala věčné impérium.</p>
+                <div class="final-score">Konečné skóre: <strong id="vic-score">3,250</strong></div>
                 <button class="hud-btn end-turn-btn" id="btn-restart-game">Hrát Novou Partii</button>
             </div>
         </div>
