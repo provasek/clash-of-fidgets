@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>provasek.xyz | Herní & Projektový Hub</title>
-    <meta name="description" content="Osobní rozcestník projektů, webových her a experimentů od provasek.">
+    <title>provasek.xyz | Vývojář, Herní Tvorba & AI Projekty</title>
+    <meta name="description" content="Osobní web a portfolio provasek. Vývoj her, webových aplikací a machine learning modelů.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
     
     <!-- Modern Clean Minimalist Fonts -->
@@ -19,61 +19,263 @@
     <!-- Ambient background glow effects -->
     <div class="ambient-glow glow-1"></div>
     <div class="ambient-glow glow-2"></div>
+    <div class="ambient-glow glow-3"></div>
+
+    <!-- Sticky Navigation Bar -->
+    <header class="navbar-wrap">
+        <nav class="navbar">
+            <a href="#" class="nav-brand">
+                <span class="brand-icon">⚡</span>
+                <span>provasek.xyz</span>
+            </a>
+            <ul class="nav-menu">
+                <li><a href="#o-mne" class="nav-link">O mně</a></li>
+                <li><a href="#dovednosti" class="nav-link">Dovednosti</a></li>
+                <li><a href="#projekty" class="nav-link">Projekty</a></li>
+                <li><a href="#kontakt" class="nav-link">Kontakt</a></li>
+            </ul>
+            <a href="https://github.com/provasek" target="_blank" rel="noopener noreferrer" class="nav-cta">
+                <span>GitHub</span>
+                <span style="font-size: 0.75rem;">↗</span>
+            </a>
+        </nav>
+    </header>
 
     <div class="site-container">
+        
         <!-- Hero Section -->
-        <header class="hero">
+        <section class="hero">
             <div class="hero-status">
                 <span class="pulse-dot"></span>
-                <span>Tvořím & Kóduju</span>
+                <span>Otevřený novým projektům & spolupracím</span>
             </div>
-            <h1 class="hero-title">provasek.xyz</h1>
+
+            <div class="hero-avatar-wrap">
+                <div class="hero-avatar">
+                    👨‍💻
+                </div>
+            </div>
+
+            <h1 class="hero-title">Ahoj, já jsem provasek</h1>
             <p class="hero-subtitle">
-                Osobní herní a vývojářský rozcestník. Tady najdeš mé webové hry, algoritmy a projekty, které jsem vytvořil.
+                Vývojář, hráč a tvůrce se zálibou v herním vývoji, umělé inteligenci a moderních webových rozhraních. Tady najdeš mé projekty, které si můžeš rovnou vyzkoušet přímo v prohlížeči.
             </p>
+
             <div class="hero-links">
-                <a href="#projects" class="hero-btn hero-btn-primary">
+                <a href="#projekty" class="hero-btn hero-btn-primary">
                     <span>🎮 Prozkoumat projekty</span>
                 </a>
-                <a href="https://github.com/provasek" target="_blank" rel="noopener noreferrer" class="hero-btn hero-btn-secondary">
-                    <span>💻 GitHub Profil</span>
+                <a href="#kontakt" class="hero-btn hero-btn-secondary">
+                    <span>💬 Napsat mi</span>
                 </a>
             </div>
-        </header>
 
-        <!-- Controls / Filters -->
-        <section id="projects" class="controls-section">
-            <div class="section-label">
-                <span>Katalog projektů</span>
-                <span id="project-count" style="font-size: 0.85rem; font-weight: 500; color: var(--text-muted); margin-left: 6px;"></span>
-            </div>
-            <div class="filter-tabs">
-                <button class="tab-btn active" data-filter="all">Všechny</button>
-                <button class="tab-btn" data-filter="games">🎮 Hry</button>
-                <button class="tab-btn" data-filter="ai">🤖 AI & Data</button>
+            <!-- Stats Bar -->
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <div class="stat-val">🎮 Herní Dev</div>
+                    <div class="stat-label">4X strategie & HTML5 hry</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-val">🤖 AI & ML</div>
+                    <div class="stat-label">Neuronové sítě & NLP</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-val">⚡ Web & HUD</div>
+                    <div class="stat-label">Canvas, audio & UI</div>
+                </div>
             </div>
         </section>
 
-        <!-- Projects Grid -->
-        <main class="projects-grid" id="projects-grid">
-            <!-- Dynamicky naplněno skriptem z projects.js -->
-        </main>
+        <!-- About Me Section -->
+        <section id="o-mne" class="about-section">
+            <div class="section-header">
+                <span class="section-pill">Představení</span>
+                <h2 class="section-title">O mně</h2>
+                <p class="section-subtitle">Kdo jsem, co mě pohání a čemu se ve volném i studijním čase věnuji.</p>
+            </div>
 
-        <!-- How-to / Architecture banner -->
-        <aside class="guide-banner">
-            <div class="guide-text">
-                <h3>📁 Jak fungují cesty s lomítkem?</h3>
-                <p>Každý projekt má svou vlastní složku v <span class="guide-code">/projects/nazev/</span> a běží přímo na své URL adrese.</p>
+            <div class="about-grid">
+                <div class="about-card">
+                    <div class="about-icon">🚀</div>
+                    <h3>Co mě baví tvořit</h3>
+                    <p>
+                        Fascinuje mě programování věcí, které okamžitě ožívají před očima. Od tahových strategických her s chytrou umělou inteligencí, přes futuristická sci-fi rozhraní inspirovaná Iron Manem, až po praktické datové algoritmy.
+                    </p>
+                </div>
+                <div class="about-card">
+                    <div class="about-icon">🧠</div>
+                    <h3>Zájem o AI & Data</h3>
+                    <p>
+                        Zkoumám možnosti strojového učení, hlubokých neuronových sítí (MLP) a zpracování přirozeného jazyka (NLP). Baví mě propojovat teoretické matematické modely s reálnými daty z praxe.
+                    </p>
+                </div>
+                <div class="about-card">
+                    <div class="about-icon">🎯</div>
+                    <h3>Filozofie vývoje</h3>
+                    <p>
+                        Důraz na plynulost, přehledný kód a okamžitou dostupnost. Všechny své projekty stavím tak, aby běžely přímo v moderním prohlížeči bez nutnosti složité instalace pro koncové uživatele.
+                    </p>
+                </div>
             </div>
-            <div class="guide-code">
-                /projects/polytropia/
+        </section>
+
+        <!-- Skills Section -->
+        <section id="dovednosti" class="skills-section">
+            <div class="section-header">
+                <span class="section-pill">Tech Stack</span>
+                <h2 class="section-title">Technologie & Dovednosti</h2>
+                <p class="section-subtitle">Nástroje, jazyky a frameworky, se kterými nejčastěji pracuji.</p>
             </div>
-        </aside>
+
+            <div class="skills-grid">
+                <div class="skill-category-card">
+                    <div class="skill-cat-header">
+                        <span style="font-size: 1.4rem;">🎮</span>
+                        <h3>Herní Vývoj & Frontend</h3>
+                    </div>
+                    <div class="skill-badges">
+                        <span class="skill-badge">JavaScript (ES6+)</span>
+                        <span class="skill-badge">Phaser 3</span>
+                        <span class="skill-badge">HTML5 Canvas</span>
+                        <span class="skill-badge">Web Audio API</span>
+                        <span class="skill-badge">Modern CSS3</span>
+                        <span class="skill-badge">Responzivní Web</span>
+                    </div>
+                </div>
+
+                <div class="skill-category-card">
+                    <div class="skill-cat-header">
+                        <span style="font-size: 1.4rem;">🐍</span>
+                        <h3>Python & Backend</h3>
+                    </div>
+                    <div class="skill-badges">
+                        <span class="skill-badge">Python 3</span>
+                        <span class="skill-badge">FastAPI / Flask</span>
+                        <span class="skill-badge">REST API</span>
+                        <span class="skill-badge">Multithreading</span>
+                        <span class="skill-badge">Asynchronní kód</span>
+                    </div>
+                </div>
+
+                <div class="skill-category-card">
+                    <div class="skill-cat-header">
+                        <span style="font-size: 1.4rem;">🤖</span>
+                        <h3>AI & Machine Learning</h3>
+                    </div>
+                    <div class="skill-badges">
+                        <span class="skill-badge">Neuronové sítě (MLP)</span>
+                        <span class="skill-badge">PyTorch</span>
+                        <span class="skill-badge">NLP & Klasifikace</span>
+                        <span class="skill-badge">Google Gemini API</span>
+                        <span class="skill-badge">Analýza dat</span>
+                    </div>
+                </div>
+
+                <div class="skill-category-card">
+                    <div class="skill-cat-header">
+                        <span style="font-size: 1.4rem;">🛠️</span>
+                        <h3>Nástroje & Platformy</h3>
+                    </div>
+                    <div class="skill-badges">
+                        <span class="skill-badge">Git & GitHub</span>
+                        <span class="skill-badge">GitHub Pages & Actions</span>
+                        <span class="skill-badge">VS Code</span>
+                        <span class="skill-badge">Linux / PowerShell</span>
+                        <span class="skill-badge">Vite / NPM</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Projects Section -->
+        <section id="projekty" class="projects-section">
+            <div class="section-header">
+                <span class="section-pill">Portfolio</span>
+                <h2 class="section-title">Vybrané Projekty</h2>
+                <p class="section-subtitle">Interaktivní webové hry, AI rozhraní i semestrální práce.</p>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="controls-section">
+                <div class="section-label">
+                    <span>Katalog projektů</span>
+                    <span id="project-count" style="font-size: 0.85rem; font-weight: 500; color: var(--text-muted); margin-left: 6px;"></span>
+                </div>
+                <div class="filter-tabs">
+                    <button class="tab-btn active" data-filter="all">Všechny</button>
+                    <button class="tab-btn" data-filter="games">🎮 Hry</button>
+                    <button class="tab-btn" data-filter="ai">🤖 AI & Data</button>
+                </div>
+            </div>
+
+            <!-- Dynamic Projects Grid -->
+            <main class="projects-grid" id="projects-grid">
+                <!-- Dynamicky generováno ze skriptu projects.js -->
+            </main>
+
+            <!-- Architecture Info Banner -->
+            <aside class="guide-banner">
+                <div class="guide-text">
+                    <h3>📁 Cesty s lomítkem (Subpath Routing)</h3>
+                    <p>Každý samostatný projekt má svou vlastní podsložku v <span class="guide-code">/projects/nazev/</span> a běží přímo na své URL adrese.</p>
+                </div>
+                <div class="guide-code">
+                    provasek.xyz/projects/polytropia/
+                </div>
+            </aside>
+        </section>
+
+        <!-- Contact Section -->
+        <section id="kontakt" class="contact-section">
+            <div class="section-header">
+                <span class="section-pill">Spojení</span>
+                <h2 class="section-title">Kontakt & Odkazy</h2>
+                <p class="section-subtitle">Máš nápad na projekt, dotaz ke kódu nebo chceš jen pokecat? Ozvi se!</p>
+            </div>
+
+            <div class="contact-grid">
+                <a href="https://github.com/provasek" target="_blank" rel="noopener noreferrer" class="contact-card">
+                    <div class="contact-icon">💻</div>
+                    <div class="contact-info">
+                        <h4>GitHub</h4>
+                        <p>Moje repozitáře, zdrojové kódy a open-source příspěvky.</p>
+                        <div class="contact-handle">github.com/provasek</div>
+                    </div>
+                </a>
+
+                <a href="mailto:kontakt@provasek.xyz" class="contact-card">
+                    <div class="contact-icon">✉️</div>
+                    <div class="contact-info">
+                        <h4>E-mail</h4>
+                        <p>Napiš mi přímo na e-mail pro dotazy nebo spolupráci.</p>
+                        <div class="contact-handle">kontakt@provasek.xyz (doplň svůj)</div>
+                    </div>
+                </a>
+
+                <div class="contact-card">
+                    <div class="contact-icon">💬</div>
+                    <div class="contact-info">
+                        <h4>Discord & Komunita</h4>
+                        <p>Zastihneš mě na Discordu nebo dalších sítích.</p>
+                        <div class="contact-handle">@provasek (doplň svůj tag)</div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
         <!-- Footer -->
         <footer class="site-footer">
-            <p>© 2026 <strong>provasek</strong> • Běží na GitHub Pages & Cloudflare</p>
+            <div class="footer-nav">
+                <a href="#o-mne" class="footer-link">O mně</a>
+                <a href="#dovednosti" class="footer-link">Dovednosti</a>
+                <a href="#projekty" class="footer-link">Projekty</a>
+                <a href="#kontakt" class="footer-link">Kontakt</a>
+                <a href="https://github.com/provasek/web" target="_blank" rel="noopener noreferrer" class="footer-link">Zdrojový kód webu</a>
+            </div>
+            <p>© 2026 <strong>provasek</strong> • Osobní portfolio & rozcestník projektů na GitHub Pages</p>
         </footer>
+
     </div>
 
     <!-- Data & Scripts -->
