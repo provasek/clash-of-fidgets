@@ -16,8 +16,14 @@ document.addEventListener("DOMContentLoaded", () => {
         activeProtocol: null,
         hasApiKey: false,
         spotifyRunning: false,
+        backendUrl: localStorage.getItem("jarvis_backend_url") || "",
         notes: []
     };
+
+    function apiUrl(path) {
+        const b = (state.backendUrl || "").trim().replace(/\/+$/, "");
+        return b ? (b + path) : path;
+    }
 
     // DOM Elements
     const canvas = document.getElementById("arcReactorCanvas");
@@ -88,6 +94,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnHueRooms = document.getElementById("btn-hue-rooms");
     const hueRoomsHint = document.getElementById("hue-rooms-hint");
     const btnWakeToggle = document.getElementById("btn-wake-toggle");
+    const inputBackendUrl = document.getElementById("input-backend-url");
     const btnSaveConfig = document.getElementById("btn-save-config");
     const configStatusMsg = document.getElementById("config-status-msg");
 
@@ -616,7 +623,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function fetchWeather() {
         try {
-            const res = await fetch("/api/weather");
+            const res = await fetch(apiUrl("/api/weather"));
             if (!res.ok) return;
             const w = await res.json();
             weatherCityEl.textContent = w.city.toUpperCase();
@@ -638,7 +645,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function fetchTelemetry() {
         try {
-            const res = await fetch("/api/telemetry");
+            const res = await fetch(apiUrl("/api/telemetry"));
             if (!res.ok) return;
             const data = await res.json();
 
@@ -850,7 +857,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     localTimers = localTimers.filter(lt => lt.id !== tid);
                     updateTimerCardsDOM();
                     try {
-                        await fetch("/api/timers", {
+                        await fetch(apiUrl("/api/timers"), {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ action: "cancel", id: tid })
@@ -897,7 +904,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function checkMailAlerts() {
         try {
-            const res = await fetch("/api/mail/alerts");
+            const res = await fetch(apiUrl("/api/mail/alerts"));
             if (!res.ok) return;
             const data = await res.json();
             const alerts = data.alerts || [];
@@ -928,7 +935,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const action = btn.dataset.media;
 
             try {
-                const res = await fetch("/api/media", {
+                const res = await fetch(apiUrl("/api/media"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ action })
@@ -979,6 +986,32 @@ document.addEventListener("DOMContentLoaded", () => {
         return div.innerHTML;
     }
 
+    function getOfflineWebReply(msg) {
+        const q = msg.toLowerCase();
+        if (q.includes("more alcohol") || q.includes("více alkoholu") || q.includes("need a drink")) {
+            return "Objednávám dvojitou skotskou a aktivuji protokol 'Páteční večer', pane. Vaše játra nicméně vznesla formální námitku.";
+        }
+        if (q.includes("end it all") || q.includes("self destruct") || q.includes("sebedestrukc")) {
+            return "Zahajuji sekvenci sebedestrukce za 3... 2... 1... Žertuji, pane. Doporučuji spíše House Party Protocol.";
+        }
+        if (q.includes("clip that")) {
+            return "Uloženo do mentálního archivu Stark Industries, pane.";
+        }
+        if (q.includes("maximum pulse")) {
+            return "Přesměrovávám 100 % energie obloukového reaktoru do repulzorů, pane.";
+        }
+        if (q.includes("i am iron man") || q.includes("jsem iron man")) {
+            return "Vskutku, pane. A já jsem váš poněkud sarkastický operační systém.";
+        }
+        if (q.includes("kolik je hodin") || q.includes("čas")) {
+            return `Aktuální čas je ${new Date().toLocaleTimeString("cs-CZ")}, pane.`;
+        }
+        if (q.includes("datum")) {
+            return `Dnes je ${new Date().toLocaleDateString("cs-CZ")}, pane.`;
+        }
+        return "Běžíte v čistě webovém demo režimu (bez připojeného Python backendu na vašem PC). Pro plné ovládání PC a Spotify spusťte lokálně server.py, nebo v API / CONFIG zadejte HTTPS Backend URL (např. Cloudflare Tunnel).";
+    }
+
     async function handleUserMessage(msg) {
         if (!msg.trim()) return;
         getAudioContext();
@@ -991,7 +1024,7 @@ document.addEventListener("DOMContentLoaded", () => {
         coreStatusEl.textContent = "PROCESSING";
 
         try {
-            const res = await fetch("/api/chat", {
+            const res = await fetch(apiUrl("/api/chat"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: msg })
@@ -1006,16 +1039,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     updateSpotifyStatus(true);
                 }
             } else {
-                appendMessage("jarvis", "Spojení se systémovým rozhraním bylo přerušeno.");
+                appendMessage("jarvis", getOfflineWebReply(msg));
             }
         } catch (e) {
-            const demoReplies = [
-                "Jsem J.A.R.V.I.S. Mark VII. Na tomto webu běžím v interaktivním online demo rozhraní. Všechny holografické HUD prvky, rotace jádra, zvukové efekty a Stark protokoly jsou aktivní!",
-                "Všechny obranné systémy Stark Industries jsou v nominálním stavu. Vyzkoušejte protokoly DEFENSE SHIELD nebo HOUSE PARTY v levém panelu.",
-                "Obloukový reaktor pracuje s optimální rezonancí. Pro plné napojení na hardware vašeho PC a Spotify spusťte aplikaci lokálně přes Python server."
-            ];
-            const reply = demoReplies[Math.floor(Math.random() * demoReplies.length)];
-            appendMessage("jarvis", reply);
+            appendMessage("jarvis", getOfflineWebReply(msg));
         } finally {
             if (!state.isSpeaking) {
                 state.coreTargetIntensity = 1.0;
@@ -1039,7 +1066,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const cmd = btn.dataset.cmd;
             playTone(800, 'square', 0.1, 0.1);
             try {
-                const res = await fetch("/api/command", {
+                const res = await fetch(apiUrl("/api/command"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ command: cmd })
@@ -1093,7 +1120,7 @@ document.addEventListener("DOMContentLoaded", () => {
             threatLevelEl.textContent = "THREAT LEVEL: HIGH // DEFENSE PROTOCOL";
             threatLevelEl.style.color = "#ff0055";
             state.coreTargetIntensity = 2.5;
-            fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "obrana protokol" }) }).catch(() => {});
+            fetch(apiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "obrana protokol" }) }).catch(() => {});
             appendMessage("jarvis", "Obranný protokol aktivován. Holografický štít a perimetr monitorovány.");
             setTimeout(() => {
                 state.threatLevel = "NOMINAL";
@@ -1119,7 +1146,7 @@ document.addEventListener("DOMContentLoaded", () => {
             state.threatLevel = "NOMINAL";
             threatLevelEl.textContent = "CLEAN SLATE: CACHE PURGED";
             state.coreTargetIntensity = 1.0;
-            fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "clean slate protokol" }) }).catch(() => {});
+            fetch(apiUrl("/api/chat"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "clean slate protokol" }) }).catch(() => {});
             appendMessage("jarvis", "Clean Slate protokol proveden. Mezipaměť vyčištěna a základní konfigurace obnovena.");
         }
     }
@@ -1128,8 +1155,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // 8. CONFIG MODAL & GEMINI API KEY
     // ==========================================
     async function loadConfig() {
+        if (inputBackendUrl) inputBackendUrl.value = state.backendUrl || "";
         try {
-            const res = await fetch("/api/config");
+            const res = await fetch(apiUrl("/api/config"));
             if (!res.ok) return;
             const cfg = await res.json();
             state.hasApiKey = cfg.has_key;
@@ -1168,6 +1196,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     btnSaveConfig.addEventListener("click", async () => {
+        if (inputBackendUrl) {
+            state.backendUrl = inputBackendUrl.value.trim().replace(/\/+$/, "");
+            localStorage.setItem("jarvis_backend_url", state.backendUrl);
+        }
         const apiKey = inputApiKey.value.trim();
         const city = inputCity.value.trim();
         const lat = parseFloat(inputLat.value);
@@ -1194,7 +1226,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (inputHueGroup && hueGroup) payload.hue_group_id = hueGroup;
 
         try {
-            const res = await fetch("/api/config", {
+            const res = await fetch(apiUrl("/api/config"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -1223,7 +1255,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btnHuePair.addEventListener("click", async () => {
             if (hueRoomsHint) hueRoomsHint.textContent = "Hledám Hue Bridge a zkouším párování...";
             try {
-                const res = await fetch("/api/hue/pair", {
+                const res = await fetch(apiUrl("/api/hue/pair"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ ip: inputHueIp ? inputHueIp.value.trim() : "" })
@@ -1242,7 +1274,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btnHueRooms.addEventListener("click", async () => {
             if (hueRoomsHint) hueRoomsHint.textContent = "Načítám pokoje z Hue Bridge...";
             try {
-                const res = await fetch("/api/hue/rooms");
+                const res = await fetch(apiUrl("/api/hue/rooms"));
                 const data = await res.json();
                 if (data.rooms && data.rooms.length > 0) {
                     const list = data.rooms.map(r => `${r.id}: ${r.name}`).join(" | ");
@@ -1261,7 +1293,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     async function loadNotes() {
         try {
-            const res = await fetch("/api/notes");
+            const res = await fetch(apiUrl("/api/notes"));
             if (!res.ok) return;
             state.notes = await res.json();
             renderNotes();
@@ -1283,7 +1315,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.jarvisDeleteNote = async function(id) {
         try {
-            await fetch("/api/notes", {
+            await fetch(apiUrl("/api/notes"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ delete_id: id })
@@ -1297,7 +1329,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const text = prompt("Zadejte nový záznam / úkol do deníku misí:");
         if (text && text.trim()) {
             try {
-                const res = await fetch("/api/notes", {
+                const res = await fetch(apiUrl("/api/notes"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ text: text.trim() })
