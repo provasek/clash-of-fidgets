@@ -104,7 +104,7 @@ const UNIT_TYPES = {
     knight: { name: 'Rytíř', icon: '🐎', hp: 14, maxHp: 14, atk: 6, def: 3, range: 1, move: 2, cost: 8 },
     catapult: { name: 'Katapult', icon: '💣', hp: 10, maxHp: 10, atk: 8, def: 0, range: 3, move: 1, cost: 9, siege: true },
     settler: { name: 'Osadník', icon: '⛺', hp: 6, maxHp: 6, atk: 0, def: 1, range: 1, move: 1, cost: 7 },
-    boat: { name: 'Válečný Člun', icon: '⛵', hp: 12, maxHp: 12, atk: 4, def: 2, range: 2, move: 2, cost: 0 },
+    boat: { name: 'Válečný Člun', icon: '⛵', hp: 12, maxHp: 12, atk: 4, def: 2, range: 2, move: 2, cost: 5 },
     battleship: { name: 'Bitevní Koráb', icon: '🚢', hp: 18, maxHp: 18, atk: 7, def: 3, range: 2, move: 2, cost: 12 }
 };
 
@@ -956,11 +956,23 @@ class PolytropiaScene extends Phaser.Scene {
 
     revealFogAround(cx, cy, radius = 2) {
         let revealedAny = false;
+        if (!G.factionExplored) G.factionExplored = {};
+        if (!G.factionExplored[G.activeFaction]) {
+            G.factionExplored[G.activeFaction] = [];
+            for (let x = 0; x < G.gridSize; x++) {
+                G.factionExplored[G.activeFaction][x] = [];
+                for (let y = 0; y < G.gridSize; y++) {
+                    G.factionExplored[G.activeFaction][x][y] = false;
+                }
+            }
+        }
+
         for (let dx = -radius; dx <= radius; dx++) {
             for (let dy = -radius; dy <= radius; dy++) {
                 const tx = cx + dx;
                 const ty = cy + dy;
                 if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
+                    G.factionExplored[G.activeFaction][tx][ty] = true;
                     if (this.fog[tx][ty]) {
                         this.fog[tx][ty] = false;
                         revealedAny = true;
@@ -1028,9 +1040,10 @@ class PolytropiaScene extends Phaser.Scene {
 
         const isCatapult = unit.type === 'catapult';
         // Katapult nemůže po pohybu střílet v témže tahu
+        const hasRoadHere = G.roads.some(r => r.gx === unit.gx && r.gy === unit.gy) || this.cities.some(c => c.gx === unit.gx && c.gy === unit.gy);
         const moveRange = unit.moved ? 0 : UNIT_TYPES[unit.type].move;
         const attackRange = (unit.attacked || (isCatapult && unit.moved)) ? 0 : UNIT_TYPES[unit.type].range;
-        const maxR = Math.max(moveRange, attackRange);
+        const maxR = Math.max(moveRange + (hasRoadHere ? 1 : 0), attackRange);
 
         if (maxR === 0) return;
 
@@ -1048,9 +1061,10 @@ class PolytropiaScene extends Phaser.Scene {
                 const friendlyOnTile = unitOnTile && unitOnTile.owner === G.activeFaction;
                 const canSail = G.factions[G.activeFaction].techs.includes('sailing');
                 const isWater = this.map[x][y].biome === 'water';
+                const inFog = this.fog && this.fog[x] && this.fog[x][y];
 
-                // ČERVENÝ ÚTOČNÝ INDIKÁTOR (v nejvyšší vrstvě uiLayer a přímo klikatelný!)
-                if (enemyOnTile && !unit.attacked && dist <= attackRange) {
+                // ČERVENÝ ÚTOČNÝ INDIKÁTOR (pouze pokud cíl NENÍ zahalen v černé mlze!)
+                if (enemyOnTile && !unit.attacked && dist <= attackRange && !inFog) {
                     const ring = this.add.circle(sx, sy, 15, 0xef4444, 0.75);
                     ring.setStrokeStyle(2, 0xffffff, 0.95);
                     ring.setInteractive(new Phaser.Geom.Circle(15, 15, 22), Phaser.Geom.Circle.Contains);
@@ -1063,10 +1077,16 @@ class PolytropiaScene extends Phaser.Scene {
                     this.uiLayer.add(ring);
                     this.moveHighlights.push({ x, y, type: 'attack', target: unitOnTile, sprite: ring });
                 }
-                // MODRÝ POHYBOVÝ INDIKÁTOR (v nejvyšší vrstvě uiLayer a přímo klikatelný!)
-                else if (!unitOnTile && !friendlyOnTile && !unit.moved && dist <= moveRange && (!isWater || canSail)) {
-                    // Kontrola nepřekročení hor rytířem bez cesty
-                    if (dist === 2 && this.map[x][y].biome === 'mountain' && !G.factions[G.activeFaction].techs.includes('mining')) {
+                // MODRÝ POHYBOVÝ INDIKÁTOR (s bonusem +1 pole při pohybu po silnici mezi městy/cestami!)
+                else if (!unitOnTile && !friendlyOnTile && !unit.moved && (!isWater || canSail)) {
+                    const destHasRoad = G.roads.some(r => r.gx === x && r.gy === y) || this.cities.some(c => c.gx === x && c.gy === y);
+                    const roadBonus = (hasRoadHere && destHasRoad) ? 1 : 0;
+                    const effectiveMove = moveRange + roadBonus;
+
+                    if (dist > effectiveMove) continue;
+
+                    // Kontrola nepřekročení hor rytířem bez hornictví
+                    if (dist >= 2 && this.map[x][y].biome === 'mountain' && !G.factions[G.activeFaction].techs.includes('mining')) {
                         continue;
                     }
                     const ring = this.add.circle(sx, sy, 12, isWater ? 0x0284c7 : 0x38bdf8, 0.75);
@@ -1285,7 +1305,7 @@ class PolytropiaScene extends Phaser.Scene {
                 }
             }
 
-            if (atkDef.range === 1 && !attacker.moved) {
+            if (atkDef.range === 1) {
                 this.executeMove(attacker, defender.gx, defender.gy);
             }
         }
@@ -1611,6 +1631,15 @@ function openCityDock(city) {
         }
     }
 
+    const isCoastal = scene ? [
+        { dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
+        { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }
+    ].some(off => {
+        const tx = city.gx + off.dx;
+        const ty = city.gy + off.dy;
+        return tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize && scene.map[tx][ty].biome === 'water';
+    }) : false;
+
     const facStars = G.factions[G.activeFaction].stars;
     shelf.innerHTML = `
         ${garrisonHtml}
@@ -1635,6 +1664,16 @@ function openCityDock(city) {
             ${techs.includes('siege') ? `
                 <button type="button" class="action-chip ${facStars < 9 ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="trainUnitInCity('catapult', ${city.id})">
                     <span>💣 Katapult</span> <span class="cost">(9 ⭐)</span>
+                </button>
+            ` : ''}
+            ${(isCoastal && techs.includes('sailing')) ? `
+                <button type="button" class="action-chip ${facStars < 5 ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="trainUnitInCity('boat', ${city.id})">
+                    <span>⛵ Válečný Člun</span> <span class="cost">(5 ⭐)</span>
+                </button>
+            ` : ''}
+            ${(isCoastal && techs.includes('navigation')) ? `
+                <button type="button" class="action-chip ${facStars < 12 ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="trainUnitInCity('battleship', ${city.id})">
+                    <span>🚢 Bitevní Koráb</span> <span class="cost">(12 ⭐)</span>
                 </button>
             ` : ''}
             <button type="button" class="action-chip ${facStars < 5 ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="improveCityFarmland(${city.id})">
@@ -1686,16 +1725,37 @@ window.trainUnitInCity = function(type, cityId) {
     let spawnY = city.gy;
     const hasGarrison = scene.units.some(u => u.gx === city.gx && u.gy === city.gy);
 
-    // Pokud v městě již stojí posádka (nebo jde o Osadníka, který nemůže založit město v existujícím městě),
-    // spawnuj na nejbližší volné políčko kolem města!
-    if (hasGarrison || type === 'settler') {
+    const offsets = [
+        { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 },
+        { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 },
+        { dx: 2, dy: 0 }, { dx: 0, dy: 2 }, { dx: -2, dy: 0 }, { dx: 0, dy: -2 },
+        { dx: 2, dy: 1 }, { dx: 1, dy: 2 }, { dx: -2, dy: 1 }, { dx: 1, dy: -2 }
+    ];
+
+    // Výcvik lodí - hledáme přilehlé vodní pole
+    if (type === 'boat' || type === 'battleship') {
+        let foundWater = false;
+        for (let off of offsets) {
+            const tx = city.gx + off.dx;
+            const ty = city.gy + off.dy;
+            if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
+                const occ = scene.units.some(u => u.gx === tx && u.gy === ty);
+                if (scene.map[tx][ty].biome === 'water' && !occ) {
+                    spawnX = tx;
+                    spawnY = ty;
+                    foundWater = true;
+                    break;
+                }
+            }
+        }
+        if (!foundWater) {
+            showToast('⚠️ V okolí přístavu není žádné volné vodní pole pro spuštění lodi!');
+            return;
+        }
+    }
+    // Pozemní jednotky: Pokud v městě již stojí posádka (nebo jde o Osadníka), spawnuj kolem města
+    else if (hasGarrison || type === 'settler') {
         let foundSpot = false;
-        const offsets = [
-            { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 },
-            { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 },
-            { dx: 2, dy: 0 }, { dx: 0, dy: 2 }, { dx: -2, dy: 0 }, { dx: 0, dy: -2 },
-            { dx: 2, dy: 1 }, { dx: 1, dy: 2 }, { dx: -2, dy: 1 }, { dx: 1, dy: -2 }
-        ];
 
         // 1. Průchod: Hledej volné políčko bez jednotky a bez města
         for (let off of offsets) {
@@ -1825,6 +1885,7 @@ window.foundNewCityWithSettler = function(unitId) {
     scene.units = scene.units.filter(x => x !== u);
 
     const activeFac = G.factions[G.activeFaction];
+    const cityBaseIncome = 3 + (activeFac.techs.includes('philosophy') ? 3 : 0);
     const newCity = {
         id: Date.now(),
         name: `Nové ${activeFac.name} ${scene.cities.filter(c => c.owner === G.activeFaction).length + 1}`,
@@ -1832,7 +1893,7 @@ window.foundNewCityWithSettler = function(unitId) {
         level: 1,
         progress: 0,
         progressMax: 2,
-        income: 3,
+        income: cityBaseIncome,
         gx: u.gx,
         gy: u.gy,
         hasWalls: false,
@@ -2136,12 +2197,33 @@ window.resolveRuinChoice = function(choice) {
     } else if (choice === 'veteran') {
         const u = G.selectedEntity && G.selectedEntity.data;
         const startC = scene.cities.find(c => c.owner === G.activeFaction) || scene.cities[0];
+        const originX = u ? u.gx : (startC ? startC.gx : 0);
+        const originY = u ? u.gy : (startC ? startC.gy : 0);
+        let spawnX = originX;
+        let spawnY = originY;
+        const offsets = [
+            { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 },
+            { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }
+        ];
+        for (let off of offsets) {
+            const tx = originX + off.dx;
+            const ty = originY + off.dy;
+            if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
+                const occ = scene.units.some(un => un.gx === tx && un.gy === ty);
+                const isWater = scene.map[tx][ty].biome === 'water';
+                if (!occ && !isWater) {
+                    spawnX = tx;
+                    spawnY = ty;
+                    break;
+                }
+            }
+        }
         scene.units.push({
             id: Date.now(),
             owner: G.activeFaction,
             type: 'knight',
-            gx: u ? u.gx : startC.gx,
-            gy: u ? u.gy : startC.gy,
+            gx: spawnX,
+            gy: spawnY,
             hp: 14,
             maxHp: 14,
             moved: false,
@@ -2150,7 +2232,7 @@ window.resolveRuinChoice = function(choice) {
             isVeteran: true
         });
         G.score += 90;
-        showToast('🐎 Probuzen starověký Rytíř veterán!');
+        showToast(`🐎 Probuzen starověký Rytíř veterán na [${spawnX}, ${spawnY}]!`);
         scene.renderUnits();
     } else if (choice === 'tech') {
         const unlearned = Object.keys(TECH_TREE).filter(t => !curFac.techs.includes(t));
@@ -2202,7 +2284,11 @@ function renderDiplomacyModal() {
                     <button class="diplo-btn pact-btn" onclick="proposePeace('${fKey}')">🕊️ Nabídnout Mír (6 ⭐)</button>
                 ` : `
                     <button class="diplo-btn war-btn" onclick="declareWar('${fKey}')">⚔️ Vyhlásit Válku</button>
-                    <button class="diplo-btn pact-btn" onclick="signTradePact('${fKey}')">📜 Obchodní Pakt (+2 ⭐/tah)</button>
+                    ${f.hasTradePact ? `
+                        <div class="diplo-btn pact-btn" style="background:#064e3b; border-color:#059669; cursor:default; opacity:0.9;">✅ Aktivní Pakt (+2 ⭐/tah)</div>
+                    ` : `
+                        <button class="diplo-btn pact-btn" onclick="signTradePact('${fKey}')">📜 Obchodní Pakt (+2 ⭐/tah)</button>
+                    `}
                 `}
             </div>
         `;
@@ -2213,8 +2299,14 @@ function renderDiplomacyModal() {
 
 window.declareWar = function(fKey) {
     G.factions[fKey].status = 'war';
+    if (G.factions[fKey].hasTradePact) {
+        G.factions[fKey].hasTradePact = false;
+        const curFac = G.factions[G.activeFaction];
+        curFac.bonusIncome = Math.max(0, (curFac.bonusIncome || 0) - 2);
+    }
     SFX.play('attack');
     showToast(`⚔️ VYHLÁŠENA VÁLKA FRAKCI ${G.factions[fKey].name.toUpperCase()}!`);
+    updateHUD();
     renderDiplomacyModal();
 };
 
@@ -2234,12 +2326,17 @@ window.proposePeace = function(fKey) {
 
 window.signTradePact = function(fKey) {
     const curFac = G.factions[G.activeFaction];
+    if (G.factions[fKey].hasTradePact) {
+        showToast('⚠️ S touto frakcí již máš aktivní obchodní pakt!');
+        return;
+    }
     if (curFac.stars < 4) {
         showToast('❌ Nedostatek Hvězd na založení paktu (potřeba 4 ⭐)!');
         return;
     }
     curFac.stars -= 4;
-    curFac.income += 2;
+    curFac.bonusIncome = (curFac.bonusIncome || 0) + 2;
+    G.factions[fKey].hasTradePact = true;
     SFX.play('level_up');
     showToast(`📜 OBCHODNÍ PAKT PODEPSÁN s ${G.factions[fKey].name}! Trvalý příjem +2 ⭐/tah.`);
     updateHUD();
@@ -2332,12 +2429,46 @@ function unlockTechnology(techKey) {
     SFX.play('level_up');
     showToast(`🔬 TECHNOLOGIE OBJEVENÁ: ${t.name}!`);
 
+    if (techKey === 'philosophy') {
+        const scene = game.scene.getScene('PolytropiaScene');
+        if (scene && scene.cities) {
+            scene.cities.filter(c => c.owner === G.activeFaction).forEach(c => {
+                c.income += 3;
+            });
+        }
+        showToast('📜 FILOZOFIE OSVÍCENÍ! Všechna tvá města získala trvalý bonus +3 ⭐/tah k příjmu!');
+    }
+
     if (techKey === 'stargate') {
         showToast('🌌 TECHNOLOGIE HVĚZDNÉ BRÁNY OBJEVENA! Nyní můžeš v hlavním městě zahájit stavbu Velkého Projektu.');
     }
 
     renderTechTree();
     updateHUD();
+}
+
+// --- VÝPOČET REÁLNÉHO PŘÍJMU FRAKCE ZA KOLO (Města, Bonusy, Obchodní pakty) ---
+function getFactionIncome(factionKey) {
+    const scene = (typeof game !== 'undefined' && game.scene) ? game.scene.getScene('PolytropiaScene') : null;
+    const fac = G.factions[factionKey];
+    if (!fac) return 0;
+    let total = 0;
+    if (scene && scene.cities) {
+        scene.cities.filter(c => c.owner === factionKey).forEach(c => {
+            total += (c.income || 0);
+        });
+    } else {
+        total = fac.income || 4;
+    }
+    if (fac.bonusIncome) {
+        total += fac.bonusIncome;
+    }
+    // Frakční bonus Solaria: +1 ⭐ z každého ovládaného města
+    if (factionKey === 'solaria') {
+        const cityCount = (scene && scene.cities) ? scene.cities.filter(c => c.owner === factionKey).length : 1;
+        total += cityCount;
+    }
+    return Math.max(1, total);
 }
 
 // --- TURN SIMULATION & MULTIPLAYER / HOTSEAT LOGIC ---
@@ -2352,14 +2483,12 @@ function executeEndTurn() {
         const nextIdx = (curIdx + 1) % order.length;
         const nextFacKey = order[nextIdx];
 
-        // Pokud jsme dokončili celé kolo (všichni hráči zahráli), navyš turn
+        // Pokud jsme dokončili celé kolo (všichni hráči zahráli), navyš turn a přičti příjmy
         if (nextIdx === 0) {
             G.turn += 1;
-            // Výběr příjmů pro všechny frakce
-            scene.cities.forEach(c => {
-                if (G.factions[c.owner]) {
-                    G.factions[c.owner].stars += c.income;
-                }
+            // Výběr reálných příjmů pro všechny frakce (včetně paktů a technologií)
+            Object.keys(G.factions).forEach(fKey => {
+                G.factions[fKey].stars += getFactionIncome(fKey);
             });
 
             // Postup Hvězdné Brány
@@ -2429,11 +2558,9 @@ function executeEndTurn() {
     // 2. REŽIM SINGLEPLAYER (Proti AI)
     G.turn += 1;
 
-    // Příjem z měst pro všechny frakce
-    scene.cities.forEach(c => {
-        if (G.factions[c.owner]) {
-            G.factions[c.owner].stars += c.income;
-        }
+    // Příjem pro všechny frakce (města, technologie, pakty)
+    Object.keys(G.factions).forEach(fKey => {
+        G.factions[fKey].stars += getFactionIncome(fKey);
     });
 
     // Reset tahů všech jednotek
@@ -2478,9 +2605,20 @@ function executeEndTurn() {
 }
 
 function recalculateFogForActiveFaction(scene) {
+    if (!G.factionExplored) G.factionExplored = {};
+    if (!G.factionExplored[G.activeFaction]) {
+        G.factionExplored[G.activeFaction] = [];
+        for (let x = 0; x < G.gridSize; x++) {
+            G.factionExplored[G.activeFaction][x] = [];
+            for (let y = 0; y < G.gridSize; y++) {
+                G.factionExplored[G.activeFaction][x][y] = false;
+            }
+        }
+    }
+
     for (let x = 0; x < G.gridSize; x++) {
         for (let y = 0; y < G.gridSize; y++) {
-            scene.fog[x][y] = true;
+            scene.fog[x][y] = !G.factionExplored[G.activeFaction][x][y];
         }
     }
     // Odkryj okolí měst a jednotek aktuální frakce
@@ -2545,7 +2683,8 @@ function executeAIFactionTurn(scene, fKey) {
         // Cíle: Pokud je s hráčem mír, útočí na ostatní frakce
         const validRivalCities = scene.cities.filter(c => {
             if (c.owner === fKey) return false;
-            if (c.owner === 'solaria' && faction.status !== 'war') return false;
+            const isHumanCity = (G.gameMode === 'passplay' ? G.passPlayFactions.includes(c.owner) : c.owner === G.playerFaction);
+            if (isHumanCity && faction.status !== 'war') return false;
             return true;
         });
 
@@ -2565,7 +2704,8 @@ function executeAIFactionTurn(scene, fKey) {
         // Kontrola přítomnosti nepřítele pro útok
         const targetUnit = scene.units.find(pu => pu.gx === nextX && pu.gy === nextY && pu.owner !== fKey);
         if (targetUnit) {
-            if (targetUnit.owner === G.activeFaction && faction.status !== 'war') {
+            const isHumanUnit = (G.gameMode === 'passplay' ? G.passPlayFactions.includes(targetUnit.owner) : targetUnit.owner === G.playerFaction);
+            if (isHumanUnit && faction.status !== 'war') {
                 return; // Mír: neútočit
             }
             scene.executeCombat(u, targetUnit);
@@ -2632,7 +2772,8 @@ function updateHUD() {
         elName.style.color = activeFac.cssColor;
     }
     if (elStars) elStars.innerText = activeFac.stars;
-    if (elIncome) elIncome.innerText = `+${activeFac.income}/kolo`;
+    const curIncome = getFactionIncome(G.activeFaction);
+    if (elIncome) elIncome.innerText = `+${curIncome}/kolo`;
     if (elTurn) elTurn.innerText = G.turn;
     if (elScore) elScore.innerText = G.score;
     if (elCities) elCities.innerText = playerCities;
@@ -2708,6 +2849,9 @@ window.selectGameMode = function(mode) {
 };
 
 window.confirmStartGame = function() {
+    // Okamžité odemčení Web Audio API přímo v uživatelském gestu kliku
+    SFX.unlockAudio();
+
     const modal = document.getElementById('start-modal');
     if (modal) modal.classList.add('hidden');
 
@@ -2783,7 +2927,7 @@ window.addEventListener('load', () => {
         'start-modal',
         'hotseat-splash',
         'ruins-modal',
-        'victory-modal'
+        'game-over-modal'
     ];
     uiContainers.forEach(id => {
         const el = document.getElementById(id);
@@ -2796,6 +2940,14 @@ window.addEventListener('load', () => {
     });
 
     document.getElementById('btn-end-turn').addEventListener('click', executeEndTurn);
+
+    // Tlačítko Hrát Novou Partii po výhře / prohře
+    const btnRestart = document.getElementById('btn-restart-game');
+    if (btnRestart) {
+        btnRestart.addEventListener('click', () => {
+            window.location.reload();
+        });
+    }
 
     document.getElementById('btn-open-tech').addEventListener('click', () => {
         renderTechTree();
@@ -2826,6 +2978,9 @@ window.addEventListener('load', () => {
         const techModal = document.getElementById('tech-modal');
         const diploModal = document.getElementById('diplo-modal');
         const ruinsModal = document.getElementById('ruins-modal');
+        const startModal = document.getElementById('start-modal');
+        const splashModal = document.getElementById('hotseat-splash');
+        const gameOverModal = document.getElementById('game-over-modal');
 
         if (e.key === 'Escape') {
             techModal.classList.add('hidden');
@@ -2869,6 +3024,9 @@ window.addEventListener('load', () => {
         }
 
         if (e.key === 'Enter' || e.code === 'Space') {
+            if (startModal && !startModal.classList.contains('hidden')) return;
+            if (splashModal && !splashModal.classList.contains('hidden')) return;
+            if (gameOverModal && !gameOverModal.classList.contains('hidden')) return;
             if (!techModal.classList.contains('hidden') || !diploModal.classList.contains('hidden') || !ruinsModal.classList.contains('hidden')) return;
             if (G.gameOver) return;
             executeEndTurn();
