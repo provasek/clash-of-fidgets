@@ -2068,10 +2068,20 @@ function showToast(msg) {
 
 function updateHUD() {
     const player = G.factions.solaria;
-    document.getElementById('stat-stars').innerText = player.stars;
-    document.getElementById('stat-income').innerText = `+${player.income}`;
-    document.getElementById('stat-turn').innerText = `${G.turn} / ${G.maxTurns}`;
-    document.getElementById('stat-score').innerText = G.score;
+    const scene = (typeof game !== 'undefined' && game.scene) ? game.scene.getScene('PolytropiaScene') : null;
+    const playerCities = scene ? scene.cities.filter(c => c.owner === 'solaria').length : 1;
+
+    const elStars = document.getElementById('hud-stars');
+    const elIncome = document.getElementById('hud-income');
+    const elTurn = document.getElementById('hud-turn-num');
+    const elScore = document.getElementById('hud-score');
+    const elCities = document.getElementById('hud-cities-count');
+
+    if (elStars) elStars.innerText = player.stars;
+    if (elIncome) elIncome.innerText = `+${player.income}/kolo`;
+    if (elTurn) elTurn.innerText = G.turn;
+    if (elScore) elScore.innerText = G.score;
+    if (elCities) elCities.innerText = playerCities;
 }
 
 // ====================================================
@@ -2079,7 +2089,7 @@ function updateHUD() {
 // ====================================================
 const config = {
     type: Phaser.AUTO,
-    parent: 'game-container',
+    parent: 'phaser-viewport',
     width: window.innerWidth,
     height: window.innerHeight,
     transparent: true,
