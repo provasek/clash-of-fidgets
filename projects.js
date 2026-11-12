@@ -4,16 +4,29 @@
  */
 const PROJECTS = [
     {
+        id: "jarvis",
+        title: "J.A.R.V.I.S. // Mark VII OS",
+        category: "ai",
+        badge: "⚡ Sci-Fi HUD",
+        badgeType: "ai",
+        icon: "🤖",
+        description: "Futuristické holografické rozhraní Iron Mana s animovaným Arc Reactorem v reálném čase, kinetickými zvukovými efekty Web Audio, Stark protokoly (Defense Shield, House Party) a hlasovým rozhraním.",
+        tags: ["Canvas HUD", "Web Audio API", "Google Gemini", "Stark Industries"],
+        playUrl: "/projects/jarvis/",
+        githubUrl: "https://github.com/provasek/jarvis",
+        featured: true
+    },
+    {
         id: "polytropia",
         title: "Polytropia: Civilizace Hvězd",
         category: "games",
-        badge: "⭐ Hlavní hra",
+        badge: "⭐ 4X Hra",
         badgeType: "featured",
         icon: "👑",
         description: "Kompletní tahová 4X strategická hra běžící přímo v prohlížeči. Buduj impérium, verbuj vojska, objevuj kontinenty a technologie. Nabízí hru proti chytré AI i lokální multiplayer pro více hráčů.",
         tags: ["Phaser 3", "JavaScript", "HTML5 Canvas", "4X Strategie"],
         playUrl: "/projects/polytropia/",
-        githubUrl: "https://github.com/provasek/clash-of-fidgets",
+        githubUrl: "https://github.com/provasek/web",
         featured: true
     },
     {
@@ -25,7 +38,7 @@ const PROJECTS = [
         icon: "👾",
         description: "Reimplementace legendární arkádové vesmírné střílečky. Chraň Zemi před vlnami mimozemských nájezdníků v dynamické retro hratelnosti.",
         tags: ["JavaScript", "Game Dev", "Retro Arcade"],
-        playUrl: null, // Zatím bez webové verze (nebo doplň cestu)
+        playUrl: null,
         githubUrl: "https://github.com/provasek/space-invaders",
         featured: false
     },

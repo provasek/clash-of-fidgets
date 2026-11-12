@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.A.R.V.I.S. // Mark VII Operating System</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="hud-scanlines"></div>
+    <div class="hud-grid-bg"></div>
+
+    <header class="hud-header">
+        <div class="header-left">
+            <a href="/" class="hud-badge" style="text-decoration:none;cursor:pointer;border-color:rgba(0,217,255,0.4);color:#00d9ff;margin-right:6px;" title="Návrat na hlavní web">← WEB</a>
+            <span class="hud-badge pulse">STARK IND.</span>
+            <span class="hud-title">J.A.R.V.I.S.</span>
+            <span class="hud-subtitle">SYS V.7.4.2 // NEURAL INTERFACE</span>
+        </div>
+        <div class="header-center">
+            <div class="security-status">
+                <span class="status-indicator"></span>
+                <span id="threat-level">SECURITY: NOMINAL</span>
+            </div>
+            <div class="uptime-counter">
+                UPTIME: <span id="sys-uptime">00:00:00</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div id="live-clock" class="digital-clock">00:00:00</div>
+            <button id="btn-config-open" class="hud-btn-mini highlight" title="Konfigurace & Gemini API Klíč">
+                ⚙️ <span id="api-status-badge">API: NASTAVIT</span>
+            </button>
+            <div class="audio-toggle-wrap">
+                <button id="btn-audio-mute" class="hud-btn-mini" title="Přepnout zvukové efekty">
+                    🔊 SFX ON
+                </button>
+                <button id="btn-tts-toggle" class="hud-btn-mini" title="Přepnout syntézu hlasu">
+                    🗣️ VOICE ON
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="hud-container">
+        <!-- LEFT WING: TELEMETRY & SYSTEM HARDWARE -->
+        <section class="hud-panel left-panel">
+            <div class="panel-corner top-left"></div>
+            <div class="panel-corner top-right"></div>
+            <div class="panel-corner bottom-left"></div>
+            <div class="panel-corner bottom-right"></div>
+            <div class="panel-header">
+                <h3>// HARDWARE TELEMETRY</h3>
+                <span class="panel-tag">LIVE PC DATA</span>
+            </div>
+            
+            <div class="panel-content scrollable">
+                <!-- WEATHER WIDGET -->
+                <div class="telemetry-card weather-card">
+                    <div class="card-header">
+                        <span>ATMOSPHERIC TELEMETRY</span>
+                        <span id="weather-city" class="val-highlight">PRAHA</span>
+                    </div>
+                    <div class="weather-row">
+                        <div class="weather-main">
+                            <span id="weather-icon" class="weather-icon">🌤️</span>
+                            <span id="weather-temp" class="weather-temp">--°C</span>
+                        </div>
+                        <div class="weather-details">
+                            <span id="weather-desc" class="weather-desc">Načítání...</span>
+                            <span id="weather-stats" class="weather-stats">Vlhkost: --% | Vítr: -- km/h</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CPU GAUGE -->
+                <div class="telemetry-card">
+                    <div class="card-header">
+                        <span>CENTRAL PROCESSING UNIT</span>
+                        <span id="cpu-percent" class="val-highlight">0%</span>
+                    </div>
+                    <div class="hud-progress-bar">
+                        <div id="cpu-bar" class="hud-progress-fill" style="width: 0%;"></div>
+                    </div>
+                    <div id="cpu-cores-grid" class="cores-container">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- RAM GAUGE -->
+                <div class="telemetry-card">
+                    <div class="card-header">
+                        <span>MEMORY RAM</span>
+                        <span id="ram-usage-text" class="val-highlight">0 / 0 GB (0%)</span>
+                    </div>
+                    <div class="hud-progress-bar">
+                        <div id="ram-bar" class="hud-progress-fill cyan" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- DISK GAUGE -->
+                <div class="telemetry-card">
+                    <div class="card-header">
+                        <span>STORAGE (SYSTEM DRIVE)</span>
+                        <span id="disk-usage-text" class="val-highlight">0 GB (0%)</span>
+                    </div>
+                    <div class="hud-progress-bar">
+                        <div id="disk-bar" class="hud-progress-fill gold" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- POWER & NETWORK -->
+                <div class="telemetry-row">
+                    <div class="mini-card">
+                        <span class="mini-label">POWER SOURCE</span>
+                        <span id="battery-status" class="mini-value">AC MAIN 100%</span>
+                    </div>
+                    <div class="mini-card">
+                        <span class="mini-label">NETWORK TRAFFIC</span>
+                        <span id="net-traffic" class="mini-value">TX/RX ACTIVE</span>
+                    </div>
+                </div>
+
+                <!-- ACTIVE PROCESSES -->
+                <div class="telemetry-card">
+                    <div class="card-header">
+                        <span>TOP ACTIVE PROCESSES</span>
+                        <span class="val-dim">CPU / RAM</span>
+                    </div>
+                    <div id="process-list" class="tech-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CENTER: ARC REACTOR CORE & PROTOCOL CONTROLS -->
+        <section class="hud-panel center-panel">
+            <div class="reactor-wrapper">
+                <canvas id="arcReactorCanvas" width="460" height="460"></canvas>
+                <div class="reactor-label-overlay">
+                    <span class="core-sub">ARC REACTOR MK-VII</span>
+                    <span id="core-status" class="core-main">STANDBY</span>
+                    <span class="core-coords">FREQ 3.82 GHz // OUTPUT 100%</span>
+                </div>
+            </div>
+
+            <!-- SPOTIFY / MEDIA DECK -->
+            <div class="media-deck">
+                <div class="media-header">
+                    <div class="media-status-pill">
+                        <span class="media-dot" id="spotify-dot"></span>
+                        <span id="media-status-label">SPOTIFY STANDBY</span>
+                    </div>
+                    <span class="media-title-hint">AUDIO STREAM CONTROLLER</span>
+                </div>
+                <!-- NOW PLAYING STRIP -->
+                <div class="now-playing-strip" id="now-playing-strip">
+                    <div class="audio-equalizer" id="audio-equalizer">
+                        <span></span><span></span><span></span><span></span>
+                    </div>
+                    <div class="track-info-text">
+                        <span class="track-title" id="now-playing-title">Pozastaveno</span>
+                        <span class="track-artist" id="now-playing-artist">Spotify</span>
+                    </div>
+                </div>
+                <div class="media-controls">
+                    <button class="media-btn" data-media="prev" title="Předchozí skladba">⏮</button>
+                    <button class="media-btn play-btn" data-media="play_pause" title="Přehrát / Pauza">⏯ PLAY/PAUSE</button>
+                    <button class="media-btn" data-media="next" title="Další skladba">⏭</button>
+                    <button class="media-btn" data-media="vol_down" title="Snížit hlasitost">🔉 -</button>
+                    <button class="media-btn" data-media="vol_up" title="Zvýšit hlasitost">🔊 +</button>
+                    <button class="media-btn app-link" data-media="open_spotify" title="Otevřít Spotify">🎵 OPEN SPOTIFY</button>
+                </div>
+            </div>
+
+            <!-- ACTIVE TIMERS DECK -->
+            <div id="active-timers-deck" class="active-timers-deck">
+                <!-- Dynamically populated by JS -->
+            </div>
+
+            <!-- VOICE CONTROLLER -->
+            <div class="voice-control-section">
+                <button id="btn-mic" class="hud-mic-btn">
+                    <div class="mic-pulse-ring"></div>
+                    <span id="mic-icon">🎙️</span>
+                    <span id="mic-text">HLASOVÝ VSTUP</span>
+                </button>
+                <div class="voice-status-bar">
+                    <span id="voice-indicator">STISKNĚTE PRO DIKTOVÁNÍ NEBO PIŠTE NÍŽE</span>
+                </div>
+            </div>
+
+            <!-- PROTOCOL QUICK BUTTONS -->
+            <div class="protocol-bar">
+                <button class="proto-btn" data-proto="morning-briefing" title="Denní situační přehled">
+                    <span class="btn-bracket">[</span> ☀️ BRIEFING <span class="btn-bracket">]</span>
+                </button>
+                <button class="proto-btn" data-proto="diagnostic">
+                    <span class="btn-bracket">[</span> DIAGNOSTIC <span class="btn-bracket">]</span>
+                </button>
+                <button class="proto-btn" data-proto="defense">
+                    <span class="btn-bracket">[</span> DEFENSE SHIELD <span class="btn-bracket">]</span>
+                </button>
+                <button class="proto-btn" data-proto="house-party">
+                    <span class="btn-bracket">[</span> HOUSE PARTY <span class="btn-bracket">]</span>
+                </button>
+                <button class="proto-btn" data-proto="clean-slate">
+                    <span class="btn-bracket">[</span> CLEAN SLATE <span class="btn-bracket">]</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- RIGHT WING: AI CHAT TERMINAL & MISSION LOGS -->
+        <section class="hud-panel right-panel">
+            <div class="panel-corner top-left"></div>
+            <div class="panel-corner top-right"></div>
+            <div class="panel-corner bottom-left"></div>
+            <div class="panel-corner bottom-right"></div>
+            <div class="panel-header">
+                <h3>// AI COMMAND TERMINAL</h3>
+                <span class="panel-tag">INTELLIGENCE</span>
+            </div>
+
+            <div class="panel-content flex-col">
+                <!-- QUICK SYSTEM LAUNCHERS -->
+                <div class="quick-launch-bar">
+                    <span class="ql-label">EXECUTE:</span>
+                    <button class="ql-btn" data-cmd="calc">CALC</button>
+                    <button class="ql-btn" data-cmd="notepad">NOTEPAD</button>
+                    <button class="ql-btn" data-cmd="spotify">SPOTIFY</button>
+                    <button class="ql-btn" data-cmd="taskmgr">TASK MGR</button>
+                    <button class="ql-btn" data-cmd="explorer">FILES</button>
+                    <button class="ql-btn" data-cmd="google">WEB</button>
+                </div>
+
+                <!-- CHAT LOG CONTAINER -->
+                <div id="chat-stream" class="terminal-stream">
+                    <div class="message jarvis">
+                        <span class="msg-author">J.A.R.V.I.S.:</span>
+                        <span class="msg-text">Dobrý den, pane. Všechny primární subsystémy jsou v pohotovosti. Pro plnou inteligenci můžete kdykoliv aktivovat Gemini API klíč v horním nastavení. Jak vám mohu asistovat?</span>
+                        <span class="msg-time">INIT</span>
+                    </div>
+                </div>
+
+                <!-- INPUT FORM -->
+                <form id="chat-form" class="hud-input-row">
+                    <input type="text" id="chat-input" placeholder="Zadejte příkaz, otázku nebo řekněte 'pusť hudbu'..." autocomplete="off">
+                    <button type="submit" id="btn-send" class="hud-send-btn">TRANSMIT</button>
+                </form>
+
+                <!-- MISSION LOG / NOTES -->
+                <div class="mission-log-box">
+                    <div class="log-box-header">
+                        <span>MISSION LOGS & NOTES</span>
+                        <button id="btn-toggle-notes" class="log-toggle-btn">+ PŘIDAT ZÁPIS</button>
+                    </div>
+                    <div id="notes-container" class="notes-list">
+                        <!-- Loaded by JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- CONFIG / API KEY MODAL -->
+    <div id="config-modal" class="hud-modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-dialog">
+            <div class="modal-corner top-left"></div>
+            <div class="modal-corner top-right"></div>
+            <div class="modal-corner bottom-left"></div>
+            <div class="modal-corner bottom-right"></div>
+            <div class="modal-header">
+                <h3>// J.A.R.V.I.S. CONFIGURATION & AI CORE</h3>
+                <button id="btn-config-close" class="modal-close-btn">✖</button>
+            </div>
+            <div class="modal-body">
+                <div class="config-field">
+                    <label for="input-api-key">GOOGLE GEMINI API KLÍČ (PRO PLNOU INTELIGENCI):</label>
+                    <input type="password" id="input-api-key" placeholder="AIzaSy..." autocomplete="off">
+                    <span class="input-hint">
+                        Získejte bezplatný klíč za 30 vteřin na 
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
+                        Uloží se bezpečně v lokálním souboru <code>config.json</code>.
+                    </span>
+                </div>
+                <div class="config-row-2">
+                    <div class="config-field">
+                        <label for="input-city">MĚSTO (POČASÍ):</label>
+                        <input type="text" id="input-city" placeholder="Praha">
+                    </div>
+                    <div class="config-field">
+                        <label for="input-coords">SOUŘADNICE (LAT, LON):</label>
+                        <div class="coords-group">
+                            <input type="number" step="0.0001" id="input-lat" placeholder="50.0755">
+                            <input type="number" step="0.0001" id="input-lon" placeholder="14.4378">
+                        </div>
+                    </div>
+                </div>
+                <div id="config-status-msg" class="config-status-msg"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-save-config" class="hud-send-btn large">ULOŽIT & SYNCHRONIZOVAT</button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="hud-footer">
+        <div class="footer-segment">LOC: PRG // SYSTEM: WINDOWS 11</div>
+        <div class="footer-center">INITIALIZED FOR TONY STARK & PROVA // ALL RIGHTS RESERVED</div>
+        <div class="footer-segment">STATUS: CONNECTED // LATENCY: 2ms</div>
+    </footer>
+
+    <script src="jarvis.js"></script>
+</body>
+</html>

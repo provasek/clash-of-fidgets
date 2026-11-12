@@ -48,3 +48,4 @@ Osobní webové portfolio a rozcestník projektů hostovaný na **GitHub Pages**
 - `projects/` – Jednotlivé projekty s vlastními podsložkami
   - `projects/polytropia/` – 4X strategická hra Polytropia: Civilizace Hvězd
   - `projects/hra/` – Zkratka / alias pro hru
+  - `projects/jarvis/` – J.A.R.V.I.S. Mark VII Neural Interface (futuristický HUD asistent)
