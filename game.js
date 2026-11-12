@@ -68,7 +68,8 @@ const TECH_TREE = {
 const UNIT_TYPES = {
     warrior: { name: 'Válečník', icon: '🗡️', hp: 10, maxHp: 10, atk: 4, def: 2, range: 1, move: 1, cost: 3 },
     archer: { name: 'Lučištník', icon: '🏹', hp: 8, maxHp: 8, atk: 3, def: 1, range: 2, move: 1, cost: 5 },
-    knight: { name: 'Rytíř', icon: '🐎', hp: 14, maxHp: 14, atk: 6, def: 3, range: 1, move: 2, cost: 8 }
+    knight: { name: 'Rytíř', icon: '🐎', hp: 14, maxHp: 14, atk: 6, def: 3, range: 1, move: 2, cost: 8 },
+    settler: { name: 'Osadník', icon: '⛺', hp: 6, maxHp: 6, atk: 0, def: 1, range: 1, move: 1, cost: 7 }
 };
 
 // --- PROCEDURAL AUDIO (Clean Modern UI Pops, Fanfares & Hits) ---
@@ -288,7 +289,19 @@ function generatePolytopiaTextures(scene) {
         gfx.generateTexture('unit_knight', 40, 40);
     }
 
-    // 11. Farm Feature Overlay
+    // 11. Settler Unit
+    if (!scene.textures.exists('unit_settler')) {
+        gfx.clear();
+        gfx.fillStyle(0xd97706, 1);
+        gfx.fillCircle(20, 20, 14);
+        gfx.lineStyle(2, 0xffffff, 1);
+        gfx.strokeCircle(20, 20, 14);
+        gfx.fillStyle(0xffffff, 1);
+        gfx.fillTriangle(20, 10, 12, 26, 28, 26);
+        gfx.generateTexture('unit_settler', 40, 40);
+    }
+
+    // 12. Farm Feature Overlay
     if (!scene.textures.exists('feat_farm')) {
         gfx.clear();
         gfx.fillStyle(0xfacc15, 0.9);
@@ -675,24 +688,30 @@ class PolytropiaScene extends Phaser.Scene {
         const targetSx = (targetX - targetY) * (this.tileW / 2);
         const targetSy = (targetX + targetY) * (this.tileH / 2) - 6;
 
+        const onMoveDone = () => {
+            this.checkCityCapture(unit, targetX, targetY);
+            this.revealFogAround(targetX, targetY, 2);
+            this.renderUnits();
+            this.renderCities();
+
+            // Pokud jednotka ještě neútočila, znova zkontroluj a vysviť červené cíle kolem nové pozice
+            if (G.selectedEntity && G.selectedEntity.data === unit && !unit.attacked) {
+                this.highlightMovementTiles(unit);
+            }
+            openUnitDock(unit);
+        };
+
         if (spr) {
             this.tweens.add({
                 targets: spr,
                 x: targetSx,
                 y: targetSy,
-                duration: 200,
+                duration: 180,
                 ease: 'Power2',
-                onComplete: () => {
-                    this.checkCityCapture(unit, targetX, targetY);
-                    this.revealFogAround(targetX, targetY, 2);
-                    this.renderUnits();
-                    this.renderCities();
-                }
+                onComplete: onMoveDone
             });
         } else {
-            this.checkCityCapture(unit, targetX, targetY);
-            this.revealFogAround(targetX, targetY, 2);
-            this.renderUnits();
+            onMoveDone();
         }
 
         // Ruin Discovery
@@ -709,12 +728,6 @@ class PolytropiaScene extends Phaser.Scene {
             showToast(`🏛️ STAROVĚKÁ RUINA PROZKOUMÁNA! Získáno +${reward} ⭐ Hvězd!`);
             updateHUD();
         }
-
-        // Pokud jednotka ještě neútočila, aktualizuj červené cíle kolem nové pozice
-        if (!unit.attacked) {
-            this.highlightMovementTiles(unit);
-        }
-        openUnitDock(unit);
     }
 
     checkCityCapture(unit, gx, gy) {
@@ -806,12 +819,22 @@ function openUnitDock(unit) {
     title.innerText = UNIT_TYPES[unit.type].name;
     sub.innerText = `HP: ${unit.hp}/${unit.maxHp} • Pohyb: ${unit.moved ? '❌' : '✅'} • Útok: ${unit.attacked ? '❌' : '✅'}`;
 
-    shelf.innerHTML = `
+    let actionsHtml = `
         <div class="action-chip ${unit.moved && unit.attacked ? 'disabled' : ''}" onclick="healSelectedUnit()">
             <span>❤️ Odpočinek &amp; Léčení (+3 HP)</span>
         </div>
     `;
 
+    // Pokud je jednotka Osadník -> Tlačítko Založit Město
+    if (unit.type === 'settler') {
+        actionsHtml += `
+            <div class="action-chip" style="background:#0284c7; border-color:#38bdf8;" onclick="foundNewCityWithSettler()">
+                <span>🏛️ Založit Nové Město Zde</span>
+            </div>
+        `;
+    }
+
+    shelf.innerHTML = actionsHtml;
     dock.classList.remove('hidden');
 }
 
@@ -829,6 +852,9 @@ function openCityDock(city) {
     shelf.innerHTML = `
         <div class="action-chip ${G.player.stars < 3 ? 'disabled' : ''}" onclick="trainUnitInCity('warrior', ${city.id})">
             <span>🗡️ Válečník</span> <span class="cost">(3 ⭐)</span>
+        </div>
+        <div class="action-chip ${G.player.stars < 7 ? 'disabled' : ''}" onclick="trainUnitInCity('settler', ${city.id})">
+            <span>⛺ Osadník</span> <span class="cost">(7 ⭐)</span>
         </div>
         ${G.player.unlockedTechs.includes('archery') ? `
             <div class="action-chip ${G.player.stars < 5 ? 'disabled' : ''}" onclick="trainUnitInCity('archer', ${city.id})">
@@ -867,6 +893,62 @@ window.healSelectedUnit = function() {
     scene.clearTileHighlights();
     scene.renderUnits();
     openUnitDock(u);
+};
+
+window.foundNewCityWithSettler = function() {
+    if (!G.selectedEntity || G.selectedEntity.type !== 'unit') return;
+    const u = G.selectedEntity.data;
+    if (u.type !== 'settler') return;
+
+    const scene = game.scene.getScene('PolytropiaScene');
+
+    // Ověř, zda na políčku již město nestojí nebo zda není příliš blízko jinému městu
+    const existingHere = scene.cities.some(c => c.gx === u.gx && c.gy === u.gy);
+    if (existingHere) {
+        showToast('⚠️ Na tomto políčku již město existuje!');
+        return;
+    }
+
+    const tooClose = scene.cities.some(c => Math.max(Math.abs(c.gx - u.gx), Math.abs(c.gy - u.gy)) < 2);
+    if (tooClose) {
+        showToast('⚠️ Nové město musí být vzdáleno alespoň 2 políčka od jiných měst!');
+        return;
+    }
+
+    if (scene.map[u.gx][u.gy].biome === 'water' || scene.map[u.gx][u.gy].biome === 'mountain') {
+        showToast('⚠️ Město nelze založit na vodě nebo na vysoké hoře!');
+        return;
+    }
+
+    // Založ nové město
+    const cityNames = ['Lunaria', 'Astra', 'Valoria', 'Nova Solis', 'Eldoria', 'Pyros'];
+    const newName = cityNames[scene.cities.length % cityNames.length];
+
+    scene.cities.push({
+        id: Date.now(),
+        owner: 'player',
+        name: newName,
+        gx: u.gx,
+        gy: u.gy,
+        level: 1,
+        progress: 0,
+        progressMax: 2,
+        income: 3
+    });
+
+    // Odstraň osadníka
+    scene.units = scene.units.filter(x => x !== u);
+
+    SFX.play('level_up');
+    G.score += 100;
+    showToast(`🏛️ ZALOŽENO NOVÉ MĚSTO: ${newName}! (+3 ⭐/tah)`);
+
+    scene.clearTileHighlights();
+    scene.revealFogAround(u.gx, u.gy, 2);
+    scene.renderCities();
+    scene.renderUnits();
+    updateHUD();
+    closeDock();
 };
 
 window.trainUnitInCity = function(type, cityId) {
