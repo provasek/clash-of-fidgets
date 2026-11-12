@@ -179,6 +179,28 @@ function playSound(type) {
         gain.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
         osc.start(t);
         osc.stop(t + 0.35);
+    } else if (type === 'fanfare') {
+        // Heroic Victory Fanfare (Tadaaa!)
+        const notes = [
+            { f: 523.25, d: 0.12, del: 0 },      // C5
+            { f: 523.25, d: 0.12, del: 0.12 },   // C5
+            { f: 523.25, d: 0.12, del: 0.24 },   // C5
+            { f: 659.25, d: 0.35, del: 0.36 },   // E5
+            { f: 587.33, d: 0.15, del: 0.72 },   // D5
+            { f: 783.99, d: 0.55, del: 0.88 }    // G5 (Long finish)
+        ];
+        notes.forEach(n => {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.connect(g);
+            g.connect(audioCtx.destination);
+            o.type = 'triangle';
+            o.frequency.setValueAtTime(n.f, t + n.del);
+            g.gain.setValueAtTime(0.22, t + n.del);
+            g.gain.exponentialRampToValueAtTime(0.01, t + n.del + n.d);
+            o.start(t + n.del);
+            o.stop(t + n.del + n.d);
+        });
     }
 }
 
@@ -259,11 +281,6 @@ function startMainGameLoop() {
             } else {
                 updateQuestUI();
             }
-        }
-
-        // Auto regenerate stamina slowly (1 every 60s)
-        if (G.tavern.stamina < G.tavern.maxStamina) {
-            G.tavern.stamina = Math.min(G.tavern.maxStamina, G.tavern.stamina + 0.1);
         }
 
         updateResourceUI();
@@ -402,8 +419,8 @@ function renderBuildingInspector(b) {
 
     let benefitDesc = "";
     if (b.type === 'townhall') benefitDesc = "Zvyšuje maximální limity všech budov a odemyká nová vylepšení.";
-    else if (b.type === 'goldmine') benefitDesc = `Produkce: +${b.level * 120} zlata / hodinu`;
-    else if (b.type === 'elixircamp') benefitDesc = `Produkce: +${b.level * 90} elixíru / hodinu`;
+    else if (b.type === 'goldmine') benefitDesc = `Produkce: +${b.level * 120} zlata / min`;
+    else if (b.type === 'elixircamp') benefitDesc = `Produkce: +${b.level * 90} elixíru / min`;
     else if (b.type === 'camp') benefitDesc = `Kapacita armády: +${b.level * 10} míst pro vojáky`;
     else if (b.type === 'barracks') benefitDesc = "Zvyšuje rychlost výcviku a odemyká nové typy vojska.";
     else if (b.type === 'cannon') benefitDesc = `Obranná palebná síla: ${b.level * 25} DPS v obraně`;
@@ -847,6 +864,7 @@ function generateTavernQuests() {
         const goldReward = Math.floor((G.hero.level * 40 + 20) * (idx + 1));
         const xpReward = Math.floor((G.hero.level * 30 + 15) * (idx + 1));
         const hasItem = Math.random() < 0.35;
+        const gemReward = Math.random() < 0.25 ? 1 : 0; // 25% šance na houbičku z questu!
         return {
             id: idx,
             title: t.title,
@@ -856,6 +874,7 @@ function generateTavernQuests() {
             staminaCost: t.stamina,
             rewardGold: goldReward,
             rewardXp: xpReward,
+            rewardGems: gemReward,
             rewardItem: hasItem ? generateRandomItem(null, G.hero.level) : null
         };
     });
@@ -890,6 +909,7 @@ function renderTavern() {
                         <div><span>Spotřeba touhy:</span> <strong>🍻 ${q.staminaCost}</strong></div>
                         <div><span>Odměna zlato:</span> <strong style="color:#fcd34d">🪙 ${q.rewardGold}</strong></div>
                         <div><span>Odměna zkušenosti:</span> <strong style="color:#60a5fa">✨ ${q.rewardXp} XP</strong></div>
+                        ${q.rewardGems ? `<div><span>Vzácný nález:</span> <strong style="color:#10b981">🍄 +${q.rewardGems} Houbička</strong></div>` : ''}
                         ${q.rewardItem ? `<div><span>Speciální lup:</span> <strong style="color:${q.rewardItem.rarityColor}">${q.rewardItem.name}</strong></div>` : ''}
                     </div>
                 </div>
@@ -938,8 +958,14 @@ function completeActiveQuest() {
 
     G.res.gold += q.rewardGold;
     addHeroXP(q.rewardXp);
+    if (q.rewardGems) {
+        G.res.gems += q.rewardGems;
+    }
 
     let toastMsg = `🎉 Úkol splněn! Získáno ${q.rewardGold} 🪙 a ${q.rewardXp} XP!`;
+    if (q.rewardGems) {
+        toastMsg += ` 🍄 +${q.rewardGems} Houbička nalezena!`;
+    }
     if (q.rewardItem) {
         if (G.hero.inventory.length < 16) {
             G.hero.inventory.push(q.rewardItem);
@@ -1181,7 +1207,7 @@ function endCombat(won) {
 
     if (won) {
         logCombat(`🏆 <strong>VÍTĚZSTVÍ! Nepřítel padl k zemi!</strong>`, 'crit');
-        playSound('upgrade');
+        playSound('fanfare');
 
         const gEarned = combatState.enemy.rewardGold;
         const xpEarned = combatState.enemy.rewardXp;
@@ -1426,7 +1452,9 @@ function startRaidBattle() {
             return;
         }
         raidState.timerSec -= 1;
-        document.getElementById('raid-timer').innerText = `00:${raidState.timerSec < 10 ? '0' : ''}${raidState.timerSec}`;
+        const mins = Math.floor(raidState.timerSec / 60);
+        const secs = raidState.timerSec % 60;
+        document.getElementById('raid-timer').innerText = `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
         if (raidState.timerSec <= 0) {
             clearInterval(raidTimerInterval);
             endRaidBattle();
@@ -1493,6 +1521,10 @@ function updateRaidLogic() {
             }
         });
 
+        // Hero Morale Aura (Clash + S&F integration: Hrdinova síla posiluje vojsko!)
+        const heroAtkBonus = Math.floor((G.hero.stats.str + G.hero.stats.dex) / 10);
+        const actualDmg = t.dmg + (t.isHero ? 0 : heroAtkBonus);
+
         if (target) {
             const cx = target.x + target.w / 2;
             const cy = target.y + target.h / 2;
@@ -1504,8 +1536,17 @@ function updateRaidLogic() {
                 t.x += Math.cos(angle) * t.spd;
                 t.y += Math.sin(angle) * t.spd;
             } else {
-                // Attack
-                target.hp -= (t.dmg / 35);
+                // Attack with floating hit particle
+                target.hp -= (actualDmg / 30);
+                if (Math.random() < 0.08) {
+                    raidState.particles.push({
+                        type: 'dmgText',
+                        x: cx + (Math.random() * 20 - 10),
+                        y: cy - 10,
+                        text: `-${actualDmg}`,
+                        life: 25
+                    });
+                }
                 if (target.hp <= 0) {
                     target.hp = 0;
                     onBuildingDestroyed(target);
@@ -1660,6 +1701,12 @@ function setupEventListeners() {
             btn.classList.add('active');
             const targetPane = document.getElementById(tabId);
             if (targetPane) targetPane.classList.add('active');
+
+            // Hook: Refresh raid dock when opening raid tab
+            if (tabId === 'tab-raid' && raidState) {
+                renderDeployDock();
+                updateRaidHUD();
+            }
         });
     });
 
@@ -1749,21 +1796,31 @@ function setupEventListeners() {
         completeActiveQuest();
     });
 
-    // Shop Refresh Button
-    document.getElementById('btn-refresh-shop').addEventListener('click', () => {
-        if (G.res.gems >= 1) {
-            G.res.gems -= 1;
-        } else if (G.res.gold >= 150) {
-            G.res.gold -= 150;
-        } else {
-            showToast('❌ Nedostatek houbiček ani zlata na obnovu zboží!');
+    // Shop Refresh Buttons
+    document.getElementById('btn-refresh-shop-gold').addEventListener('click', () => {
+        if (G.res.gold < 150) {
+            showToast('❌ Nedostatek zlata (potřebuješ 150 🪙)!');
             return;
         }
+        G.res.gold -= 150;
         playSound('coin');
         generateShopItems();
         renderShop();
         updateResourceUI();
-        showToast('🎲 Obchodník vybalil čerstvé zboží!');
+        showToast('🎲 Obchodník vybalil nové zboží za zlato!');
+    });
+
+    document.getElementById('btn-refresh-shop-gem').addEventListener('click', () => {
+        if (G.res.gems < 1) {
+            showToast('❌ Nemáš žádnou Houbičku!');
+            return;
+        }
+        G.res.gems -= 1;
+        playSound('magic');
+        generateShopItems();
+        renderShop();
+        updateResourceUI();
+        showToast('🍄 Čaroděj očaroval nabídku obchodu novým zbožím!');
     });
 
     // Dungeon & Arena Buttons
