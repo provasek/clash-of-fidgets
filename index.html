@@ -3,188 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Krypta Prázdnoty: Monolit Stínů</title>
-    <!-- Dark Gothic Fantasy Fonts -->
+    <title>Království Železa a Kamene: Budovatelská Strategie</title>
+    <!-- Medieval & Strategy Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;700;800;900&family=MedievalSharp&family=Pirata+One&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=MedievalSharp&family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <!-- Phaser 3.80.1 Engine -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 <body>
-    <div id="game-container">
-        <!-- Canvas is rendered here by Phaser in Fullscreen -->
-        <div id="phaser-root"></div>
+    <div id="game-root">
+        <!-- Phaser Canvas Mount Point -->
+        <div id="canvas-container"></div>
 
-        <!-- Atmospheric Gothic HUD Overlay (Diegetic Look) -->
-        <div id="gothic-hud">
-            <!-- Top Bar: Monolith Status & Day/Night Cycle -->
-            <div class="hud-top-center">
-                <div class="cycle-orb" id="cycle-orb">
-                    <span class="cycle-icon" id="cycle-icon">☀️</span>
-                    <div class="cycle-ring"></div>
-                </div>
-                <div class="cycle-info">
-                    <div class="cycle-phase" id="cycle-phase">ÚSVIT PŘÍPRAVY</div>
-                    <div class="cycle-timer-wrap">
-                        <div class="cycle-timer-fill" id="cycle-timer-bar"></div>
-                    </div>
-                    <div class="cycle-desc" id="cycle-desc">Čas do nočního náporu: <span id="cycle-seconds">30s</span></div>
-                </div>
-                <button class="btn-night-trigger" id="btn-trigger-night" title="Okamžitě přivolat noc pro bonusové odměny">
-                    ⚡ PŘIVOLAT NOC
-                </button>
-            </div>
-
-            <!-- Top Left: Champion HP, Blood Energy & Souls -->
-            <div class="champion-vitals">
-                <div class="vitals-portrait">
-                    <div class="portrait-avatar">🗡️</div>
-                    <div class="portrait-lvl" id="champ-lvl">1</div>
-                </div>
-                <div class="vitals-bars">
-                    <div class="bar-row hp-row">
-                        <span class="bar-lbl">ŽIVOTY</span>
-                        <div class="bar-track">
-                            <div class="bar-fill hp-fill" id="champ-hp-bar" style="width: 100%;"></div>
-                            <span class="bar-text" id="champ-hp-text">350 / 350</span>
-                        </div>
-                    </div>
-                    <div class="bar-row blood-row">
-                        <span class="bar-lbl">KREV</span>
-                        <div class="bar-track">
-                            <div class="bar-fill blood-fill" id="champ-blood-bar" style="width: 60%;"></div>
-                            <span class="bar-text" id="champ-blood-text">120 / 200</span>
-                        </div>
-                    </div>
+        <!-- Strategy HUD Header: Kingdom Economy & Demographics -->
+        <header id="kingdom-hud">
+            <div class="hud-brand">
+                <div class="realm-crest">👑</div>
+                <div class="realm-info">
+                    <h1 id="realm-name">Království Aldoria</h1>
+                    <span id="realm-tier">Úroveň Panství: <strong>Vévodství (Úr. 1)</strong></span>
                 </div>
             </div>
 
-            <!-- Top Right: Currencies & Monolith Health -->
-            <div class="monolith-status-box">
-                <div class="monolith-hp-indicator">
-                    <div class="monolith-icon">🗿</div>
-                    <div class="monolith-hp-details">
-                        <div class="m-title">POSVÁTNÝ MONOLIT</div>
-                        <div class="m-bar-track">
-                            <div class="m-bar-fill" id="monolith-hp-bar" style="width:100%;"></div>
-                        </div>
-                        <span class="m-hp-val" id="monolith-hp-val">1500 / 1500 HP</span>
+            <!-- Complex Multi-Tier Resource Economy -->
+            <div class="economy-bar">
+                <div class="res-stat" title="Volní dělníci a celková kapacita poddaných">
+                    <span class="icon">👥</span>
+                    <div class="res-vals">
+                        <span class="lbl">PODDANÍ</span>
+                        <span class="num" id="stat-pop">12 / 20</span>
                     </div>
                 </div>
-                <div class="currencies-row">
-                    <div class="curr-pill soul-pill" title="Duše padlých (na alchymii a vylepšení)">
-                        <span>👻</span> <strong id="cur-souls">350</strong>
+
+                <div class="res-stat" title="Dřevo - základní stavební materiál z pil a lesů">
+                    <span class="icon">🪵</span>
+                    <div class="res-vals">
+                        <span class="lbl">DŘEVO</span>
+                        <span class="num" id="stat-wood">450</span>
+                        <span class="rate" id="rate-wood">+18/m</span>
                     </div>
-                    <div class="curr-pill blood-pill" title="Krevní rubíny (na runy a obranu)">
-                        <span>🩸</span> <strong id="cur-blood">80</strong>
+                </div>
+
+                <div class="res-stat" title="Kámen - na hradby, věže a pokročilé budovy">
+                    <span class="icon">🪨</span>
+                    <div class="res-vals">
+                        <span class="lbl">KÁMEN</span>
+                        <span class="num" id="stat-stone">300</span>
+                        <span class="rate" id="rate-stone">+12/m</span>
                     </div>
-                    <div class="curr-pill day-pill" title="Přežité noci">
-                        <span>🌙</span> <strong>NOC <span id="cur-night-count">1</span></strong>
+                </div>
+
+                <div class="res-stat" title="Železo - kování zbraní a brnění pro armádu">
+                    <span class="icon">⛓️</span>
+                    <div class="res-vals">
+                        <span class="lbl">ŽELEZO</span>
+                        <span class="num" id="stat-iron">150</span>
+                        <span class="rate" id="rate-iron">+6/m</span>
+                    </div>
+                </div>
+
+                <div class="res-stat" title="Obilí &amp; Chléb - obživa pro poddané (při nedostatku lidé hladoví!)">
+                    <span class="icon">🌾</span>
+                    <div class="res-vals">
+                        <span class="lbl">JÍDLO</span>
+                        <span class="num" id="stat-food">280</span>
+                        <span class="rate" id="rate-food">+24/m</span>
+                    </div>
+                </div>
+
+                <div class="res-stat gold-stat" title="Zlaté koruny - daně z domů a obchodní zisky">
+                    <span class="icon">🪙</span>
+                    <div class="res-vals">
+                        <span class="lbl">POKLADNA</span>
+                        <span class="num" id="stat-gold">650</span>
+                        <span class="rate" id="rate-gold">+35/m</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Bottom Left: Controls & Combat Hotkeys Guide -->
-            <div class="controls-guide">
-                <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Pohyb Šampiona</div>
-                <div><kbd>L-CLICK</kbd> Útok mečem (směr myši)</div>
-                <div><kbd>SPACE</kbd> Stínový Úskok (Dash)</div>
-                <div><kbd>Q</kbd> / <kbd>E</kbd> Runová Kouzla</div>
+            <div class="hud-controls">
+                <button class="icon-btn" id="btn-speed" title="Rychlost simulace (1x / 2x / 5x)">⏩ 1x</button>
+                <button class="icon-btn" id="btn-audio" title="Zvuky">🔊</button>
+            </div>
+        </header>
+
+        <!-- Bottom Construction & Management Dock -->
+        <footer id="strategy-dock">
+            <div class="dock-category-tabs">
+                <button class="cat-btn active" data-cat="economy">🌾 Ekonomika &amp; Suroviny</button>
+                <button class="cat-btn" data-cat="housing">🏡 Město &amp; Obyvatelé</button>
+                <button class="cat-btn" data-cat="military">⚔️ Vojenské &amp; Hradby</button>
+                <button class="cat-btn" data-cat="roads">🛤️ Cesty &amp; Bourání</button>
             </div>
 
-            <!-- Bottom Center: Active Build / Defense Placement Palette -->
-            <div class="defense-dock" id="defense-dock">
-                <div class="defense-card active" data-type="blood_spikes" title="Krvavé Bodce (Zpomalí a zraní monstry)">
-                    <div class="d-icon">📍</div>
-                    <div class="d-info">
-                        <div class="d-name">Krvavé Trny</div>
-                        <div class="d-cost">25 🩸</div>
-                    </div>
-                </div>
-                <div class="defense-card" data-type="soul_turret" title="Oko Zkázy (Střílí energetické paprsky)">
-                    <div class="d-icon">👁️</div>
-                    <div class="d-info">
-                        <div class="d-name">Oko Zkázy</div>
-                        <div class="d-cost">50 🩸</div>
-                    </div>
-                </div>
-                <div class="defense-card" data-type="pyre_ward" title="Posvátný Oheň (Plošné hoření monstrům v dosahu)">
-                    <div class="d-icon">🔥</div>
-                    <div class="d-info">
-                        <div class="d-name">Vatra Očisty</div>
-                        <div class="d-cost">80 🩸</div>
-                    </div>
-                </div>
-                <div class="defense-card action-card" id="btn-open-altar" title="Otevřít Oltář Alchymie a Kování">
-                    <div class="d-icon">📜</div>
-                    <div class="d-info">
-                        <div class="d-name">Temný Oltář</div>
-                        <div class="d-cost">Kování &amp; Výbava</div>
-                    </div>
-                </div>
+            <div class="build-cards-shelf" id="build-shelf">
+                <!-- Dynamically populated build cards based on category -->
             </div>
-        </div>
+        </footer>
 
-        <!-- Gothic Modal: Dark Altar & Cursed Item Crafting (Diablo / S&F / Loop Hero Style) -->
-        <div class="gothic-modal-backdrop hidden" id="altar-modal">
-            <div class="gothic-modal-window">
-                <div class="modal-header">
-                    <h2>TEMNÝ OLTÁŘ ZATRACENÝCH</h2>
-                    <button class="modal-close" id="btn-close-altar">&times;</button>
-                </div>
-                <div class="modal-content">
-                    <div class="altar-columns">
-                        <!-- Left: Champion Stats & Cursed Equipment -->
-                        <div class="altar-col">
-                            <h3>VÝZBROJ ŠAMPIONA</h3>
-                            <div class="altar-paperdoll">
-                                <div class="doll-slot" id="slot-weapon" title="Zbraň">🗡️</div>
-                                <div class="doll-slot" id="slot-armor" title="Plátové Brnění">🛡️</div>
-                                <div class="doll-slot" id="slot-relic" title="Prokletá Relikvie">📿</div>
-                            </div>
-                            <div class="altar-stats-list">
-                                <div class="stat-line"><span>Síla Úderu:</span> <strong id="stat-atk">35-48</strong></div>
-                                <div class="stat-line"><span>Vampirismus:</span> <strong id="stat-vamp">12%</strong></div>
-                                <div class="stat-line"><span>Rychlost Úskoku:</span> <strong id="stat-dash">1.2s CD</strong></div>
-                                <div class="stat-line"><span>Obrana Monolitu:</span> <strong id="stat-mdef">+15%</strong></div>
-                            </div>
-                        </div>
-
-                        <!-- Right: Cursed Forge with Random Diablo-like Affixes -->
-                        <div class="altar-col">
-                            <h3>RITUÁL ČERNÉHO KOVÁNÍ</h3>
-                            <p class="altar-desc">Spoj nasbírané duše a krvavé rubíny k vykování prokletého artefaktu s náhodnými mocnými afixy.</p>
-                            
-                            <div class="forge-cost-box">
-                                Cena rituálu: <strong>120 👻 Duší</strong> + <strong>40 🩸 Krve</strong>
-                            </div>
-
-                            <button class="btn-gothic-craft" id="btn-forge-item">
-                                🔥 PROVÉST RITUÁL KOVÁNÍ
-                            </button>
-
-                            <div class="item-result-preview" id="item-result-preview">
-                                <span class="placeholder-text">Zde se zhmotní ukutý artefakt...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <!-- Active Selected Building / Tile Inspector Modal Panel -->
+        <aside id="inspector-panel" class="inspector-drawer hidden">
+            <div class="inspector-header">
+                <h3 id="insp-title">Královská Radnice</h3>
+                <button class="btn-close" id="btn-close-insp">&times;</button>
             </div>
-        </div>
-
-        <!-- Atmospheric Death / Defeat Screen -->
-        <div class="defeat-screen hidden" id="defeat-screen">
-            <div class="defeat-box">
-                <h1 class="defeat-title">MONOLIT PADL DO TEMNOTY</h1>
-                <p class="defeat-subtitle">Vlna Prázdnoty pohltila tvé království. Tvá duše se však navrací k popelu.</p>
-                <div class="defeat-score">Přežito nocí: <strong id="defeat-nights-val">3</strong></div>
-                <button class="btn-gothic-restart" id="btn-restart-game">Povstat Znovu z Popela</button>
+            <div class="inspector-content" id="insp-content">
+                <!-- Injected via JavaScript -->
             </div>
-        </div>
+        </aside>
 
-        <div id="toast-shelf"></div>
+        <!-- Toast Notifications -->
+        <div id="toast-deck"></div>
     </div>
 
     <!-- Main Game Script -->
