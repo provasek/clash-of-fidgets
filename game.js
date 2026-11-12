@@ -73,7 +73,7 @@ const G = {
     selectedEntity: null,
     gameOver: false,
     musicEnabled: true,
-    stargateProject: null, // { cityId, turnsLeft: 3 }
+    stargateProject: null, // { cityId, turnsLeft: 5 }
     roads: [] // { gx, gy }
 };
 
@@ -1038,6 +1038,9 @@ class PolytropiaScene extends Phaser.Scene {
         this.clearTileHighlights();
         this.moveHighlights = [];
 
+        // Zákaz vykreslení indikátorů pro vyčerpanou jednotku
+        if (unit.attacked && unit.moved) return;
+
         const isCatapult = unit.type === 'catapult';
         // Katapult nemůže po pohybu střílet v témže tahu
         const hasRoadHere = G.roads.some(r => r.gx === unit.gx && r.gy === unit.gy) || this.cities.some(c => c.gx === unit.gx && c.gy === unit.gy);
@@ -1063,8 +1066,8 @@ class PolytropiaScene extends Phaser.Scene {
                 const isWater = this.map[x][y].biome === 'water';
                 const inFog = this.fog && this.fog[x] && this.fog[x][y];
 
-                // ČERVENÝ ÚTOČNÝ INDIKÁTOR (pouze pokud cíl NENÍ zahalen v černé mlze!)
-                if (enemyOnTile && !unit.attacked && dist <= attackRange && !inFog) {
+                // ČERVENÝ ÚTOČNÝ INDIKÁTOR (pouze pokud cíl NENÍ zahalen v černé mlze a jednotka ještě neútočila)
+                if (enemyOnTile && !unit.attacked && attackRange > 0 && dist <= attackRange && !inFog) {
                     const ring = this.add.circle(sx, sy, 15, 0xef4444, 0.75);
                     ring.setStrokeStyle(2, 0xffffff, 0.95);
                     ring.setInteractive(new Phaser.Geom.Circle(15, 15, 22), Phaser.Geom.Circle.Contains);
@@ -1136,6 +1139,8 @@ class PolytropiaScene extends Phaser.Scene {
         const maxRange = UNIT_TYPES[attacker.type].range;
 
         if (attacker.attacked) {
+            this.clearTileHighlights();
+            openUnitDock(attacker);
             showToast('⚠️ Tato jednotka již v tomto tahu útočila!');
             return;
         }
@@ -1144,6 +1149,7 @@ class PolytropiaScene extends Phaser.Scene {
             return;
         }
 
+        this.clearTileHighlights();
         this.executeCombat(attacker, defender);
     }
 
@@ -1175,8 +1181,12 @@ class PolytropiaScene extends Phaser.Scene {
             // Pokud jednotka ještě neútočila a není katapult po pohybu, vysviť cíle
             if (G.selectedEntity && G.selectedEntity.data === unit && !unit.attacked && unit.type !== 'catapult') {
                 this.highlightMovementTiles(unit);
+            } else {
+                this.clearTileHighlights();
             }
-            openUnitDock(unit);
+            if (G.selectedEntity && G.selectedEntity.data === unit) {
+                openUnitDock(unit);
+            }
         };
 
         if (spr) {
@@ -1223,6 +1233,10 @@ class PolytropiaScene extends Phaser.Scene {
             city.owner = unit.owner;
             SFX.play('level_up');
 
+            if (oldOwner && G.factions[oldOwner] && G.factions[oldOwner].status !== 'war') {
+                G.factions[oldOwner].status = 'war';
+            }
+
             if (unit.owner === G.activeFaction) {
                 G.score += 150;
                 showToast(`🚩 MĚSTO ${city.name.toUpperCase()} BYLO DOBYTO!`);
@@ -1244,6 +1258,17 @@ class PolytropiaScene extends Phaser.Scene {
 
     executeCombat(attacker, defender) {
         attacker.attacked = true;
+        attacker.moved = true;
+        this.clearTileHighlights();
+
+        // Pokud dojde k útoku mezi hráčem a cizí frakcí, napadená frakce vstupuje do válečného stavu
+        if (defender.owner !== attacker.owner && G.factions[defender.owner] && G.factions[defender.owner].status !== 'war') {
+            G.factions[defender.owner].status = 'war';
+            if (attacker.owner === G.playerFaction) {
+                showToast(`⚔️ Frakce ${G.factions[defender.owner].name} vstoupila do válečného stavu!`);
+            }
+        }
+
         const atkDef = UNIT_TYPES[attacker.type];
         const defDef = UNIT_TYPES[defender.type];
 
@@ -1313,6 +1338,15 @@ class PolytropiaScene extends Phaser.Scene {
         if (attacker.hp <= 0) {
             this.units = this.units.filter(x => x !== attacker);
             closeDock();
+        } else {
+            // Útočník přežil: Pokud neproběhl posun na pole padlého (např. obránce žije nebo byl zabit z dálky),
+            // vyčisti indikátory a aktualizuj dock na stav Vyčerpán
+            if (defender.hp > 0 || atkDef.range > 1) {
+                this.clearTileHighlights();
+                if (G.selectedEntity && G.selectedEntity.data === attacker) {
+                    openUnitDock(attacker);
+                }
+            }
         }
 
         this.renderUnits();
@@ -1502,7 +1536,9 @@ function openUnitDock(unit) {
 
     if (iconEl) iconEl.innerText = UNIT_TYPES[unit.type] ? UNIT_TYPES[unit.type].icon : '🗡️';
     title.innerText = `${UNIT_TYPES[unit.type].name} ${unit.isVeteran ? '⭐ VETERÁN' : ''}`;
-    sub.innerText = `HP: ${unit.hp}/${unit.maxHp} • Pohyb: ${unit.moved ? '❌' : '✅'} • Útok: ${unit.attacked ? '❌' : '✅'}`;
+    const moveStatus = unit.moved ? '❌ Vyčerpán' : '✅ Připraven';
+    const atkStatus = unit.attacked ? '❌ Vyčerpán' : '✅ Připraven';
+    sub.innerText = `HP: ${unit.hp}/${unit.maxHp} • Pohyb: ${moveStatus} • Útok: ${atkStatus}`;
 
     const scene = game.scene.getScene('PolytropiaScene');
     const cityHere = scene.cities.find(c => c.gx === unit.gx && c.gy === unit.gy && c.owner === G.activeFaction);
@@ -1617,15 +1653,25 @@ function openCityDock(city) {
     // Projekt Hvězdné Brány pro Vědecké Vítězství
     if (techs.includes('stargate') && city.isCapital) {
         if (!G.stargateProject) {
+            const ownedCitiesCount = scene ? scene.cities.filter(c => c.owner === G.activeFaction).length : 1;
+            const canAfford = facStars >= 50;
+            const hasCities = ownedCitiesCount >= 2;
+            const canBuild = canAfford && hasCities;
+
+            let btnText = '🌌 Zahájit Stavbu Hvězdné Brány';
+            if (!hasCities) {
+                btnText = `🌌 Hvězdná Brána (Nutná 2+ města: ${ownedCitiesCount}/2)`;
+            }
+
             stargateProjectHtml = `
-                <button type="button" class="action-chip" style="background:linear-gradient(135deg, #4f46e5, #9333ea); border-color:#c084fc; font-weight:800;" onpointerdown="event.stopPropagation()" onclick="startStargateProject(${city.id})">
-                    <span>🌌 Zahájit Stavbu Hvězdné Brány</span> <span class="cost">(40 ⭐)</span>
+                <button type="button" class="action-chip ${!canBuild ? 'disabled' : ''}" style="background:linear-gradient(135deg, #4f46e5, #9333ea); border-color:#c084fc; font-weight:800;" onpointerdown="event.stopPropagation()" onclick="startStargateProject(${city.id})">
+                    <span>${btnText}</span> <span class="cost">(50 ⭐)</span>
                 </button>
             `;
         } else {
             stargateProjectHtml = `
                 <button type="button" class="action-chip" style="background:#312e81; border-color:#818cf8; cursor:default;" onpointerdown="event.stopPropagation()">
-                    <span>⚡ Hvězdná Brána: Nabíjení (${G.stargateProject.turnsLeft} tahy do vítězství)</span>
+                    <span>⚡ Hvězdná Brána: Nabíjení (${G.stargateProject.turnsLeft} tahů do vítězství)</span>
                 </button>
             `;
         }
@@ -2146,22 +2192,46 @@ window.buildRoadAtCity = function(cityId) {
 
 window.startStargateProject = function(cityId) {
     const curFac = G.factions[G.activeFaction];
-    if (curFac.stars < 40) {
-        showToast('❌ Na zahájení Hvězdné brány potřebuješ 40 ⭐ Hvězd!');
+    const scene = game.scene.getScene('PolytropiaScene');
+    const city = scene ? scene.cities.find(c => c.id === cityId) : null;
+    if (!city) return;
+
+    if (!curFac.techs.includes('stargate')) {
+        showToast('❌ Nejprve musíš vyzkoumat technologii Hvězdná Brána!');
         return;
     }
 
-    const scene = game.scene.getScene('PolytropiaScene');
-    const city = scene.cities.find(c => c.id === cityId);
-    if (!city) return;
+    const ownedCities = scene.cities.filter(c => c.owner === G.activeFaction);
+    if (ownedCities.length < 2) {
+        showToast('❌ Pro výstavbu Hvězdné brány musí tvá civilizace ovládat alespoň 2 města!');
+        return;
+    }
 
-    curFac.stars -= 40;
-    G.stargateProject = { cityId, turnsLeft: 3 };
+    if (curFac.stars < 50) {
+        showToast('❌ Na zahájení Hvězdné brány potřebuješ 50 ⭐ Hvězd!');
+        return;
+    }
+
+    curFac.stars -= 50;
+    G.stargateProject = { cityId, turnsLeft: 5 };
     G.score += 250;
 
     SFX.play('level_up');
     triggerConfetti(scene, (city.gx - city.gy) * (scene.tileW / 2), (city.gx + city.gy) * (scene.tileH / 2));
-    showToast('🚨 VÝSTAVBA HVĚZDNÉ BRÁNY ZAHÁJENA! Ubraň hlavní město 3 tahy!');
+
+    // PLANETÁRNÍ KRIZE (Endgame event)
+    showToast('⚠️ PLANETÁRNÍ KRIZE: Všechny frakce vyhlásily válku, aby zastavily aktivaci Hvězdné Brány!');
+
+    // Všechny ostatní frakce okamžitě zruší mírové pakty a vstoupí do války
+    Object.keys(G.factions).forEach(fKey => {
+        if (fKey !== G.activeFaction) {
+            G.factions[fKey].status = 'war';
+            if (G.factions[fKey].hasTradePact) {
+                G.factions[fKey].hasTradePact = false;
+                curFac.bonusIncome = Math.max(0, (curFac.bonusIncome || 0) - 2);
+            }
+        }
+    });
 
     scene.renderCities();
     updateHUD();
@@ -2281,7 +2351,7 @@ function renderDiplomacyModal() {
             </div>
             <div class="diplo-actions">
                 ${f.status === 'war' ? `
-                    <button class="diplo-btn pact-btn" onclick="proposePeace('${fKey}')">🕊️ Nabídnout Mír (6 ⭐)</button>
+                    <button class="diplo-btn pact-btn ${G.stargateProject ? 'disabled' : ''}" onclick="proposePeace('${fKey}')" ${G.stargateProject ? 'disabled title="Během Planetární krize nelze uzavřít mír!"' : ''}>🕊️ Nabídnout Mír (6 ⭐)</button>
                 ` : `
                     <button class="diplo-btn war-btn" onclick="declareWar('${fKey}')">⚔️ Vyhlásit Válku</button>
                     ${f.hasTradePact ? `
@@ -2311,6 +2381,10 @@ window.declareWar = function(fKey) {
 };
 
 window.proposePeace = function(fKey) {
+    if (G.stargateProject) {
+        showToast('⚠️ Během aktivace Hvězdné Brány odmítají ostatní civilizace jakýkoliv mír!');
+        return;
+    }
     const curFac = G.factions[G.activeFaction];
     if (curFac.stars < 6) {
         showToast('❌ Nedostatek Hvězd na mírové poselství (potřeba 6 ⭐)!');
@@ -2650,75 +2724,527 @@ window.dismissHotseatSplash = function() {
     document.getElementById('hotseat-splash').classList.add('hidden');
 };
 
+// --- COMPREHENSIVE 4X AI SYSTEM ---
+const AI_TECH_PATHS = {
+    khardurn: ['smithing', 'fortification', 'farming', 'archery', 'siege', 'roads', 'philosophy', 'sailing', 'navigation', 'stargate'],
+    aquaria: ['navigation', 'farming', 'archery', 'roads', 'mining', 'smithing', 'fortification', 'siege', 'philosophy', 'stargate'],
+    sylvaen: ['farming', 'mining', 'smithing', 'siege', 'roads', 'fortification', 'philosophy', 'sailing', 'navigation', 'stargate'],
+    solaria: ['roads', 'mining', 'fortification', 'smithing', 'archery', 'siege', 'philosophy', 'sailing', 'navigation', 'stargate']
+};
+
 function executeAIFactionTurn(scene, fKey) {
-    const aiUnits = scene.units.filter(u => u.owner === fKey);
-    const aiCities = scene.cities.filter(c => c.owner === fKey);
     const faction = G.factions[fKey];
+    if (!faction) return;
 
-    // Výcvik jednotek AI
-    aiCities.forEach(aiCity => {
-        if (faction.stars >= 3) {
-            const hasUnit = scene.units.some(u => u.gx === aiCity.gx && u.gy === aiCity.gy);
-            if (!hasUnit) {
-                faction.stars -= 3;
-                scene.units.push({
-                    id: Date.now() + Math.random(),
-                    owner: fKey,
-                    type: Math.random() < 0.35 ? 'archer' : 'warrior',
-                    gx: aiCity.gx,
-                    gy: aiCity.gy,
-                    hp: 10,
-                    maxHp: 10,
-                    moved: false,
-                    attacked: false,
-                    kills: 0,
-                    isVeteran: false
-                });
-            }
-        }
-    });
+    const aiCities = scene.cities.filter(c => c.owner === fKey);
+    // Pokud frakce již nemá žádná města, nemůže pokračovat
+    if (aiCities.length === 0) return;
 
-    // Pochod a útoky AI
+    const aiUnits = scene.units.filter(u => u.owner === fKey);
+
+    // Reset tahových akcí pro jednotky AI na začátku kola
     aiUnits.forEach(u => {
-        // Cíle: Pokud je s hráčem mír, útočí na ostatní frakce
-        const validRivalCities = scene.cities.filter(c => {
-            if (c.owner === fKey) return false;
-            const isHumanCity = (G.gameMode === 'passplay' ? G.passPlayFactions.includes(c.owner) : c.owner === G.playerFaction);
-            if (isHumanCity && faction.status !== 'war') return false;
-            return true;
-        });
+        u.moved = false;
+        u.attacked = false;
+    });
 
-        if (validRivalCities.length === 0) return;
+    // 1. AI TECHNOLOGICKÝ VÝZKUM (kontrola a nákup věd podle frakční identity)
+    aiExecuteResearch(scene, fKey, faction);
 
-        let nearest = validRivalCities[0];
-        let minDist = 999;
-        validRivalCities.forEach(rc => {
-            const d = Math.hypot(rc.gx - u.gx, rc.gy - u.gy);
-            if (d < minDist) { minDist = d; nearest = rc; }
-        });
+    // 2. AI EKONOMICKÉ INVESTICE (stavba dolů, farem a hradeb)
+    const mapChanged = aiExecuteEconomy(scene, fKey, faction);
+    if (mapChanged) {
+        scene.renderMapTiles();
+    }
 
-        let nextX = u.gx; let nextY = u.gy;
-        if (nearest.gx < u.gx) nextX -= 1; else if (nearest.gx > u.gx) nextX += 1;
-        if (nearest.gy < u.gy) nextY -= 1; else if (nearest.gy > u.gy) nextY += 1;
+    // 3. AI NÁBOR JEDNOTEK (pokročilé jednotky podle technologií a pobřeží)
+    aiExecuteRecruitment(scene, fKey, faction);
 
-        // Kontrola přítomnosti nepřítele pro útok
-        const targetUnit = scene.units.find(pu => pu.gx === nextX && pu.gy === nextY && pu.owner !== fKey);
-        if (targetUnit) {
-            const isHumanUnit = (G.gameMode === 'passplay' ? G.passPlayFactions.includes(targetUnit.owner) : targetUnit.owner === G.playerFaction);
-            if (isHumanUnit && faction.status !== 'war') {
-                return; // Mír: neútočit
+    // 4. AI TAKTIKA, LÉČENÍ, POHYB A BOJ (obrana vlastních měst a útok na slabá města)
+    aiExecuteTactics(scene, fKey, faction);
+}
+
+function aiExecuteResearch(scene, fKey, faction) {
+    const priorities = AI_TECH_PATHS[fKey] || AI_TECH_PATHS['solaria'];
+    for (const techId of priorities) {
+        if (!faction.techs.includes(techId)) {
+            const tech = TECH_TREE[techId];
+            if (!tech) continue;
+            // Kontrola všech prerekvizit
+            const hasReqs = tech.req.every(r => faction.techs.includes(r));
+            if (hasReqs && faction.stars >= tech.cost) {
+                // Výzkum technologie
+                faction.stars -= tech.cost;
+                faction.techs.push(techId);
+
+                // Efekt Filozofie (+3 ⭐ příjem všech měst frakce)
+                if (techId === 'philosophy') {
+                    scene.cities.filter(c => c.owner === fKey).forEach(c => {
+                        c.income = (c.income || 3) + 3;
+                    });
+                }
+
+                // AI start Hvězdné Brány pokud vyzkoumala stargate a má 40+ ⭐ a projekt dosud neběží
+                if (techId === 'stargate' && !G.stargateProject && faction.stars >= 40) {
+                    const capCity = scene.cities.find(c => c.owner === fKey && c.isCapital) || scene.cities.find(c => c.owner === fKey);
+                    if (capCity) {
+                        faction.stars -= 40;
+                        G.stargateProject = { cityId: capCity.id, turnsLeft: 3 };
+                        showToast(`🌌 VAROVÁNÍ: Frakce ${faction.name} zahájila Projekt Hvězdné Brány v ${capCity.name}!`);
+                    }
+                }
+                break; // Max 1 výzkum za kolo
             }
-            scene.executeCombat(u, targetUnit);
-        } else if (nextX >= 0 && nextX < G.gridSize && nextY >= 0 && nextY < G.gridSize) {
-            // Zákaz stohování na políčko s jinou jednotkou
-            const isOccupied = scene.units.some(ou => ou.gx === nextX && ou.gy === nextY);
-            if (!isOccupied && scene.map[nextX][nextY].biome !== 'water') {
-                u.gx = nextX;
-                u.gy = nextY;
-                scene.checkCityCapture(u, nextX, nextY);
+        }
+    }
+}
+
+function aiExecuteEconomy(scene, fKey, faction) {
+    let mapChanged = false;
+    const aiCities = scene.cities.filter(c => c.owner === fKey);
+    const offsets = [
+        { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 },
+        { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 },
+        { dx: 2, dy: 0 }, { dx: 0, dy: 2 }, { dx: -2, dy: 0 }, { dx: 0, dy: -2 }
+    ];
+
+    aiCities.forEach(city => {
+        // A. STAVBA DOLŮ (Hornictví 'mining', cena 6 ⭐)
+        if (faction.techs.includes('mining') && faction.stars >= 6) {
+            for (const off of offsets) {
+                const tx = city.gx + off.dx;
+                const ty = city.gy + off.dy;
+                if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
+                    const tile = scene.map[tx][ty];
+                    if (tile.biome === 'mountain' && !tile.hasMine) {
+                        faction.stars -= 6;
+                        tile.hasMine = true;
+                        city.income = (city.income || 3) + 3;
+                        const sx = (tx - ty) * (scene.tileW / 2);
+                        const sy = (tx + ty) * (scene.tileH / 2);
+                        if (scene.featureLayer && scene.textures.exists('feat_mine')) {
+                            const m = scene.add.image(sx, sy - 4, 'feat_mine').setOrigin(0.5, 0.7);
+                            scene.featureLayer.add(m);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        // B. STAVBA FAREM (Zemědělství 'farming', cena 5 ⭐)
+        if (faction.techs.includes('farming') && faction.stars >= 5) {
+            for (const off of offsets) {
+                const tx = city.gx + off.dx;
+                const ty = city.gy + off.dy;
+                if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
+                    const tile = scene.map[tx][ty];
+                    const hasCityHere = scene.cities.some(c => c.gx === tx && c.gy === ty);
+                    if (!hasCityHere && !tile.hasFarm && !tile.hasMine && (tile.biome === 'plain' || tile.biome === 'forest')) {
+                        faction.stars -= 5;
+                        const wasForest = tile.biome === 'forest';
+                        tile.biome = 'plain';
+                        tile.hasFarm = true;
+                        city.progress = (city.progress || 0) + 1;
+                        if (city.progress >= city.progressMax) {
+                            city.progress = 0;
+                            city.level = (city.level || 1) + 1;
+                            city.progressMax = (city.progressMax || 2) + 1;
+                            city.income = (city.income || 3) + 2;
+                        }
+                        const sx = (tx - ty) * (scene.tileW / 2);
+                        const sy = (tx + ty) * (scene.tileH / 2);
+                        if (scene.featureLayer && scene.textures.exists('feat_farm')) {
+                            const f = scene.add.image(sx, sy, 'feat_farm').setOrigin(0.5, 0.5);
+                            scene.featureLayer.add(f);
+                        }
+                        if (wasForest) mapChanged = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // C. HRADBY (Opevnění 'fortification', cena 8 ⭐)
+        if (faction.techs.includes('fortification') && !city.hasWalls && faction.stars >= 8) {
+            const enemyNearby = scene.units.some(u => u.owner !== fKey && Math.hypot(u.gx - city.gx, u.gy - city.gy) <= 4);
+            if (enemyNearby || faction.stars >= 16) {
+                faction.stars -= 8;
+                city.hasWalls = true;
             }
         }
     });
+
+    return mapChanged;
+}
+
+function aiExecuteRecruitment(scene, fKey, faction) {
+    const aiCities = scene.cities.filter(c => c.owner === fKey);
+    const aiUnits = scene.units.filter(u => u.owner === fKey);
+
+    // AI nepřetěžuje ekonomiku nadměrným počtem jednotek
+    const maxArmySize = Math.max(4, aiCities.length * 3);
+    if (aiUnits.length >= maxArmySize) return;
+
+    const offsets = [
+        { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 },
+        { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }
+    ];
+
+    aiCities.forEach(city => {
+        const isCityOccupied = scene.units.some(u => u.gx === city.gx && u.gy === city.gy);
+
+        // Kontrola vodního pole v dosahu pro námořní jednotky
+        let waterSpawnTile = null;
+        for (const off of offsets) {
+            const wx = city.gx + off.dx;
+            const wy = city.gy + off.dy;
+            if (wx >= 0 && wx < G.gridSize && wy >= 0 && wy < G.gridSize) {
+                if (scene.map[wx][wy].biome === 'water' && !scene.units.some(u => u.gx === wx && u.gy === wy)) {
+                    waterSpawnTile = { gx: wx, gy: wy };
+                    break;
+                }
+            }
+        }
+
+        // Kontrola volného pozemního pole pro pozemní jednotky
+        let landSpawnTile = null;
+        if (!isCityOccupied) {
+            landSpawnTile = { gx: city.gx, gy: city.gy };
+        } else {
+            for (const off of offsets) {
+                const lx = city.gx + off.dx;
+                const ly = city.gy + off.dy;
+                if (lx >= 0 && lx < G.gridSize && ly >= 0 && ly < G.gridSize) {
+                    const tile = scene.map[lx][ly];
+                    const occ = scene.units.some(u => u.gx === lx && u.gy === ly);
+                    const hasCityHere = scene.cities.some(c => c.gx === lx && c.gy === ly);
+                    if (!occ && !hasCityHere && tile.biome !== 'water' && tile.biome !== 'mountain') {
+                        landSpawnTile = { gx: lx, gy: ly };
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Možné jednotky k náboru
+        const candidates = [];
+
+        // Námořní jednotky (pouze na pobřeží s volnou vodou)
+        if (waterSpawnTile) {
+            if (faction.techs.includes('navigation') && faction.stars >= 12) {
+                candidates.push({ type: 'battleship', cost: 12, isWater: true, priority: fKey === 'aquaria' ? 10 : 6 });
+            }
+            if (faction.techs.includes('sailing') && faction.stars >= 5) {
+                candidates.push({ type: 'boat', cost: 5, isWater: true, priority: fKey === 'aquaria' ? 8 : 4 });
+            }
+        }
+
+        // Pozemní jednotky
+        if (landSpawnTile) {
+            if (faction.techs.includes('siege') && faction.stars >= 9) {
+                candidates.push({ type: 'catapult', cost: 9, isWater: false, priority: fKey === 'sylvaen' ? 9 : 7 });
+            }
+            if (faction.techs.includes('smithing') && faction.stars >= 8) {
+                candidates.push({ type: 'knight', cost: 8, isWater: false, priority: fKey === 'khardurn' ? 10 : 8 });
+            }
+            if (faction.techs.includes('archery') && faction.stars >= 5) {
+                candidates.push({ type: 'archer', cost: 5, isWater: false, priority: fKey === 'sylvaen' ? 9 : 6 });
+            }
+            if (faction.stars >= 3) {
+                candidates.push({ type: 'warrior', cost: 3, isWater: false, priority: 4 });
+            }
+        }
+
+        if (candidates.length === 0) return;
+
+        // Výběr jednotky podle nejvyšší priority
+        candidates.sort((a, b) => b.priority - a.priority);
+        const chosen = candidates[0];
+        const spawnLoc = chosen.isWater ? waterSpawnTile : landSpawnTile;
+        if (!spawnLoc) return;
+
+        faction.stars -= chosen.cost;
+        const newUnit = {
+            id: Date.now() + Math.random(),
+            owner: fKey,
+            type: chosen.type,
+            gx: spawnLoc.gx,
+            gy: spawnLoc.gy,
+            hp: UNIT_TYPES[chosen.type].hp,
+            maxHp: UNIT_TYPES[chosen.type].maxHp,
+            moved: true, // Vytrénovaná jednotka hraje v dalším tahu
+            attacked: true,
+            kills: 0,
+            isVeteran: false
+        };
+        scene.units.push(newUnit);
+    });
+}
+
+function aiExecuteTactics(scene, fKey, faction) {
+    const aiCities = scene.cities.filter(c => c.owner === fKey);
+
+    const isEnemyTarget = (owner) => {
+        if (owner === fKey) return false;
+        const isHuman = (G.gameMode === 'passplay' ? G.passPlayFactions.includes(owner) : owner === G.playerFaction);
+        if (isHuman && faction.status !== 'war') return false;
+        return true;
+    };
+
+    // Ohrožená města AI (nepřátelská jednotka v dosahu 3 polí)
+    const threatenedCities = aiCities.filter(city => {
+        return scene.units.some(u => isEnemyTarget(u.owner) && Math.max(Math.abs(u.gx - city.gx), Math.abs(u.gy - city.gy)) <= 3);
+    });
+
+    // Platná nepřátelská města
+    const rivalCities = scene.cities.filter(c => isEnemyTarget(c.owner));
+
+    // Zpracování akcí všech jednotek AI
+    const unitsToProcess = [...scene.units.filter(u => u.owner === fKey)];
+
+    unitsToProcess.forEach(u => {
+        if (!scene.units.includes(u) || u.hp <= 0) return;
+        if (u.moved && u.attacked) return;
+
+        const uType = UNIT_TYPES[u.type];
+        const atkRange = uType.range;
+        const moveDist = uType.move;
+        const canSail = faction.techs.includes('sailing') || u.type === 'boat' || u.type === 'battleship';
+
+        // 1. ZRANĚNÉ JEDNOTKY (pod 50% HP) SE LÉČÍ / ODPOČÍVAJÍ
+        if (u.hp < u.maxHp * 0.5) {
+            const inFriendlyCity = aiCities.some(c => c.gx === u.gx && c.gy === u.gy);
+            const adjacentEnemies = scene.units.filter(en => isEnemyTarget(en.owner) && Math.max(Math.abs(en.gx - u.gx), Math.abs(en.gy - u.gy)) === 1);
+
+            // Pokud je v bezpečí města nebo nemá vedle sebe nepřítele -> léčí se
+            if (inFriendlyCity || adjacentEnemies.length === 0) {
+                u.hp = Math.min(u.maxHp, u.hp + 3);
+                u.moved = true;
+                u.attacked = true;
+                return;
+            }
+
+            // Pokud je v ohrožení a může dorazit zraněného nepřítele, zaútočí
+            const killableEnemy = adjacentEnemies.find(en => en.hp <= 3);
+            if (killableEnemy && !u.attacked) {
+                scene.executeCombat(u, killableEnemy);
+                return;
+            }
+
+            // Taktický ústup o 1 pole směrem k nejbližšímu přátelskému městu
+            if (!u.moved && aiCities.length > 0) {
+                const nearestCity = aiCities.reduce((prev, cur) => {
+                    const dPrev = Math.hypot(prev.gx - u.gx, prev.gy - u.gy);
+                    const dCur = Math.hypot(cur.gx - u.gx, cur.gy - u.gy);
+                    return dCur < dPrev ? cur : prev;
+                });
+
+                const offsets = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }];
+                let bestRetreatTile = null;
+                let bestDistToCity = Math.hypot(nearestCity.gx - u.gx, nearestCity.gy - u.gy);
+
+                for (const off of offsets) {
+                    const nx = u.gx + off.dx;
+                    const ny = u.gy + off.dy;
+                    if (nx >= 0 && nx < G.gridSize && ny >= 0 && ny < G.gridSize) {
+                        const occ = scene.units.some(ou => ou.gx === nx && ou.gy === ny);
+                        const tile = scene.map[nx][ny];
+                        const validTerrain = (tile.biome !== 'water' || canSail);
+                        if (!occ && validTerrain) {
+                            const dCity = Math.hypot(nearestCity.gx - nx, nearestCity.gy - ny);
+                            if (dCity < bestDistToCity) {
+                                bestDistToCity = dCity;
+                                bestRetreatTile = { x: nx, y: ny };
+                            }
+                        }
+                    }
+                }
+
+                if (bestRetreatTile) {
+                    u.gx = bestRetreatTile.x;
+                    u.gy = bestRetreatTile.y;
+                    u.moved = true;
+                    scene.checkCityCapture(u, u.gx, u.gy);
+                }
+            }
+
+            // Doléčení po ústupu
+            u.hp = Math.min(u.maxHp, u.hp + 3);
+            u.moved = true;
+            u.attacked = true;
+            return;
+        }
+
+        // 2. OKAMŽITÉ DOBYTÍ NESTŘEŽENÉHO NEPŘÁTELSKÉHO MĚSTA
+        if (!u.moved) {
+            const reachableEmptyCity = rivalCities.find(rc => {
+                const dist = Math.max(Math.abs(rc.gx - u.gx), Math.abs(rc.gy - u.gy));
+                const isOccupied = scene.units.some(ou => ou.gx === rc.gx && ou.gy === rc.gy);
+                return dist <= moveDist && !isOccupied;
+            });
+
+            if (reachableEmptyCity) {
+                u.gx = reachableEmptyCity.gx;
+                u.gy = reachableEmptyCity.gy;
+                u.moved = true;
+                scene.checkCityCapture(u, reachableEmptyCity.gx, reachableEmptyCity.gy);
+                aiCheckAndExecuteAttack(scene, u, isEnemyTarget);
+                return;
+            }
+        }
+
+        // 3. STŘELBA NA DÁLKU PŘED POHYBEM (Lučištníci, Katapulty, Lodě)
+        if (atkRange > 1 && !u.attacked) {
+            const attacked = aiCheckAndExecuteAttack(scene, u, isEnemyTarget);
+            if (attacked && u.type === 'catapult') {
+                u.moved = true; // Katapult se po střelbě nehýbe
+                return;
+            }
+        }
+
+        // 4. VOLBA STRATEGICKÉHO CÍLE
+        let targetX = u.gx;
+        let targetY = u.gy;
+
+        // Priorita 0: Globální krize Hvězdné brány (AI koordinovaně táhne zničit Bránu)
+        if (G.stargateProject) {
+            const sgCity = scene.cities.find(c => c.id === G.stargateProject.cityId);
+            if (sgCity && sgCity.owner !== fKey) {
+                targetX = sgCity.gx;
+                targetY = sgCity.gy;
+            }
+        }
+        // Priorita 1: Obrana vlastního nechráněného města, ke kterému se blíží nepřítel
+        if (targetX === u.gx && targetY === u.gy) {
+            const unguardedThreatCity = threatenedCities.find(tc => !scene.units.some(ou => ou.gx === tc.gx && ou.gy === tc.gy));
+            if (unguardedThreatCity && Math.hypot(unguardedThreatCity.gx - u.gx, unguardedThreatCity.gy - u.gy) <= 4) {
+                targetX = unguardedThreatCity.gx;
+                targetY = unguardedThreatCity.gy;
+            }
+        }
+        // Priorita 2: Neutralizace nepřítele v těsné blízkosti města
+        if (targetX === u.gx && targetY === u.gy && threatenedCities.length > 0) {
+            const nearestThreatCity = threatenedCities[0];
+            const enemyInvader = scene.units.find(en => isEnemyTarget(en.owner) && Math.max(Math.abs(en.gx - nearestThreatCity.gx), Math.abs(en.gy - nearestThreatCity.gy)) <= 3);
+            if (enemyInvader) {
+                targetX = enemyInvader.gx;
+                targetY = enemyInvader.gy;
+            }
+        }
+        // Priorita 3: Koordinovaný útok na nejslabší / nejbližší nepřátelské město
+        if (targetX === u.gx && targetY === u.gy && rivalCities.length > 0) {
+            let bestCity = rivalCities[0];
+            let bestScore = 9999;
+
+            rivalCities.forEach(rc => {
+                const dist = Math.hypot(rc.gx - u.gx, rc.gy - u.gy);
+                const defender = scene.units.find(ou => ou.gx === rc.gx && ou.gy === rc.gy);
+                let score = dist * 2;
+                if (!defender) score -= 15; // Zásadní priorita pro prázdné město
+                else score += (defender.hp / 2); // Lehčí dobýt město se zraněným obráncem
+                if (!rc.hasWalls) score -= 5;
+
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestCity = rc;
+                }
+            });
+
+            targetX = bestCity.gx;
+            targetY = bestCity.gy;
+        }
+
+        // 5. TAKTICKÝ POHYB K CÍLI
+        if (!u.moved && (targetX !== u.gx || targetY !== u.gy)) {
+            let bestStepX = u.gx;
+            let bestStepY = u.gy;
+            let minDistance = Math.hypot(targetX - u.gx, targetY - u.gy);
+
+            for (let dx = -moveDist; dx <= moveDist; dx++) {
+                for (let dy = -moveDist; dy <= moveDist; dy++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dy)) > moveDist) continue;
+                    const nx = u.gx + dx;
+                    const ny = u.gy + dy;
+                    if (nx < 0 || nx >= G.gridSize || ny < 0 || ny >= G.gridSize) continue;
+
+                    // Nelze stoupat na políčko s jinou jednotkou
+                    const occ = scene.units.some(ou => ou.gx === nx && ou.gy === ny);
+                    if (occ && (nx !== u.gx || ny !== u.gy)) continue;
+
+                    const tile = scene.map[nx][ny];
+
+                    // Lodě mohou pouze na vodu
+                    if ((u.type === 'boat' || u.type === 'battleship') && tile.biome !== 'water') continue;
+                    // Pozemní jednotky mohou na vodu pouze se sailing
+                    if (tile.biome === 'water' && !canSail) continue;
+
+                    let d = Math.hypot(targetX - nx, targetY - ny);
+
+                    // Střelci si drží odstup na dostřel
+                    if (atkRange > 1) {
+                        const rangeDiff = Math.abs(Math.max(Math.abs(targetX - nx), Math.abs(targetY - ny)) - (atkRange - 1));
+                        d = d + rangeDiff * 0.8;
+                    }
+
+                    // Terénní bonus k obraně
+                    if (tile.biome === 'mountain') d -= 0.3;
+                    else if (tile.biome === 'forest') d -= 0.2;
+
+                    if (d < minDistance) {
+                        minDistance = d;
+                        bestStepX = nx;
+                        bestStepY = ny;
+                    }
+                }
+            }
+
+            if (bestStepX !== u.gx || bestStepY !== u.gy) {
+                u.gx = bestStepX;
+                u.gy = bestStepY;
+                u.moved = true;
+                scene.checkCityCapture(u, u.gx, u.gy);
+            }
+        }
+
+        // 6. ÚTOK PO POHYBU (pokud ještě neútočil a není katapult)
+        if (!u.attacked && u.type !== 'catapult') {
+            aiCheckAndExecuteAttack(scene, u, isEnemyTarget);
+        }
+    });
+}
+
+function aiCheckAndExecuteAttack(scene, u, isEnemyTarget) {
+    if (!scene.units.includes(u) || u.hp <= 0 || u.attacked) return false;
+    const atkRange = UNIT_TYPES[u.type].range;
+
+    const validTargets = scene.units.filter(en => {
+        if (!isEnemyTarget(en.owner)) return false;
+        const d = Math.max(Math.abs(en.gx - u.gx), Math.abs(en.gy - u.gy));
+        return d <= atkRange;
+    });
+
+    if (validTargets.length === 0) return false;
+
+    // Prioritizace cíle:
+    // 1. Obránce nepřátelského města
+    // 2. Cíl, který lze eliminovat jedním úderem
+    // 3. Nejslabší cíl (nejnižší HP)
+    validTargets.sort((a, b) => {
+        const aInCity = scene.cities.some(c => c.gx === a.gx && c.gy === a.gy) ? 1 : 0;
+        const bInCity = scene.cities.some(c => c.gx === b.gx && c.gy === b.gy) ? 1 : 0;
+        if (aInCity !== bInCity) return bInCity - aInCity;
+
+        const aKillable = (a.hp <= UNIT_TYPES[u.type].atk) ? 1 : 0;
+        const bKillable = (b.hp <= UNIT_TYPES[u.type].atk) ? 1 : 0;
+        if (aKillable !== bKillable) return bKillable - aKillable;
+
+        return a.hp - b.hp;
+    });
+
+    const target = validTargets[0];
+    scene.executeCombat(u, target);
+    return true;
 }
 
 function showVictoryScreen(msg) {
