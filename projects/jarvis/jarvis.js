@@ -79,6 +79,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const inputEmailAddress = document.getElementById("input-email-address");
     const inputEmailPassword = document.getElementById("input-email-password");
     const inputEmailHost = document.getElementById("input-email-host");
+    const inputHueIp = document.getElementById("input-hue-ip");
+    const inputHueUser = document.getElementById("input-hue-user");
     const btnSaveConfig = document.getElementById("btn-save-config");
     const configStatusMsg = document.getElementById("config-status-msg");
 
@@ -1019,6 +1021,7 @@ document.addEventListener("DOMContentLoaded", () => {
             threatLevelEl.textContent = "THREAT LEVEL: HIGH // DEFENSE PROTOCOL";
             threatLevelEl.style.color = "#ff0055";
             state.coreTargetIntensity = 2.5;
+            fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "obrana protokol" }) }).catch(() => {});
             appendMessage("jarvis", "Obranný protokol aktivován. Holografický štít a perimetr monitorovány.");
             setTimeout(() => {
                 state.threatLevel = "NOMINAL";
@@ -1032,7 +1035,7 @@ document.addEventListener("DOMContentLoaded", () => {
             threatLevelEl.textContent = "HOUSE PARTY PROTOCOL ENGAGED";
             threatLevelEl.style.color = "#ffbe0b";
             state.coreTargetIntensity = 3.0;
-            appendMessage("jarvis", "House Party Protocol byl úspěšně vyvolán, pane. Všechny jednotky a audiovizuální kanály jsou aktivní!");
+            handleUserMessage("house party");
             setTimeout(() => {
                 state.threatLevel = "NOMINAL";
                 threatLevelEl.textContent = "SECURITY: NOMINAL";
@@ -1044,6 +1047,7 @@ document.addEventListener("DOMContentLoaded", () => {
             state.threatLevel = "NOMINAL";
             threatLevelEl.textContent = "CLEAN SLATE: CACHE PURGED";
             state.coreTargetIntensity = 1.0;
+            fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "clean slate protokol" }) }).catch(() => {});
             appendMessage("jarvis", "Clean Slate protokol proveden. Mezipaměť vyčištěna a základní konfigurace obnovena.");
         }
     }
@@ -1071,6 +1075,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (cfg.longitude) inputLon.value = cfg.longitude;
             if (cfg.email_address !== undefined && inputEmailAddress) inputEmailAddress.value = cfg.email_address;
             if (cfg.email_imap_host && inputEmailHost) inputEmailHost.value = cfg.email_imap_host;
+            if (cfg.hue_bridge_ip !== undefined && inputHueIp) inputHueIp.value = cfg.hue_bridge_ip;
         } catch (e) {}
     }
 
@@ -1097,6 +1102,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const emailAddress = inputEmailAddress ? inputEmailAddress.value.trim() : "";
         const emailPassword = inputEmailPassword ? inputEmailPassword.value.trim() : "";
         const emailHost = inputEmailHost ? inputEmailHost.value.trim() : "";
+        const hueIp = inputHueIp ? inputHueIp.value.trim() : "";
+        const hueUser = inputHueUser ? inputHueUser.value.trim() : "";
 
         const payload = {};
         if (apiKey) payload.gemini_api_key = apiKey;
@@ -1108,6 +1115,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (inputEmailAddress) payload.email_address = emailAddress;
         if (emailPassword) payload.email_app_password = emailPassword;
         if (emailHost) payload.email_imap_host = emailHost;
+        if (inputHueIp) payload.hue_bridge_ip = hueIp;
+        if (hueUser) payload.hue_username = hueUser;
 
         try {
             const res = await fetch("/api/config", {
