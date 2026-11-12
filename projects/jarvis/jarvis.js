@@ -76,6 +76,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const inputCity = document.getElementById("input-city");
     const inputLat = document.getElementById("input-lat");
     const inputLon = document.getElementById("input-lon");
+    const inputEmailAddress = document.getElementById("input-email-address");
+    const inputEmailPassword = document.getElementById("input-email-password");
+    const inputEmailHost = document.getElementById("input-email-host");
     const btnSaveConfig = document.getElementById("btn-save-config");
     const configStatusMsg = document.getElementById("config-status-msg");
 
@@ -818,6 +821,23 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(fetchWeather, 60000);
     fetchWeather();
 
+    async function checkMailAlerts() {
+        try {
+            const res = await fetch("/api/mail/alerts");
+            if (!res.ok) return;
+            const data = await res.json();
+            const alerts = data.alerts || [];
+            for (const mail of alerts) {
+                playProtocolSound();
+                const msg = `Pane, právě vám dorazil nový e-mail od ${mail.from} s předmětem: ${mail.subject}.`;
+                appendMessage("jarvis", msg);
+                speakText(msg);
+            }
+        } catch (e) {}
+    }
+
+    setInterval(checkMailAlerts, 10000);
+
     // ==========================================
     // 5. MEDIA & SPOTIFY CONTROLS
     // ==========================================
@@ -1049,6 +1069,8 @@ document.addEventListener("DOMContentLoaded", () => {
             if (cfg.city) inputCity.value = cfg.city;
             if (cfg.latitude) inputLat.value = cfg.latitude;
             if (cfg.longitude) inputLon.value = cfg.longitude;
+            if (cfg.email_address !== undefined && inputEmailAddress) inputEmailAddress.value = cfg.email_address;
+            if (cfg.email_imap_host && inputEmailHost) inputEmailHost.value = cfg.email_imap_host;
         } catch (e) {}
     }
 
@@ -1072,6 +1094,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const city = inputCity.value.trim();
         const lat = parseFloat(inputLat.value);
         const lon = parseFloat(inputLon.value);
+        const emailAddress = inputEmailAddress ? inputEmailAddress.value.trim() : "";
+        const emailPassword = inputEmailPassword ? inputEmailPassword.value.trim() : "";
+        const emailHost = inputEmailHost ? inputEmailHost.value.trim() : "";
 
         const payload = {};
         if (apiKey) payload.gemini_api_key = apiKey;
@@ -1080,6 +1105,9 @@ document.addEventListener("DOMContentLoaded", () => {
             payload.latitude = lat;
             payload.longitude = lon;
         }
+        if (inputEmailAddress) payload.email_address = emailAddress;
+        if (emailPassword) payload.email_app_password = emailPassword;
+        if (emailHost) payload.email_imap_host = emailHost;
 
         try {
             const res = await fetch("/api/config", {
