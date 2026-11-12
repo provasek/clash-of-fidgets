@@ -961,14 +961,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     // 6. CHAT & COMMAND LOGIC
     // ==========================================
-    function appendMessage(author, text) {
+    function appendMessage(author, text, imageUrl = null) {
         const msgDiv = document.createElement("div");
         msgDiv.className = `message ${author}`;
         const timeStr = new Date().toLocaleTimeString();
 
+        const imgHtml = imageUrl
+            ? `<div style="margin-top:8px;"><img src="${escapeHtml(imageUrl)}" alt="J.A.R.V.I.S. Meme" style="max-width:100%;max-height:240px;border-radius:6px;border:1px solid rgba(0,243,255,0.45);box-shadow:0 0 12px rgba(0,243,255,0.2);"></div>`
+            : "";
+
         msgDiv.innerHTML = `
             <span class="msg-author">${author === 'jarvis' ? 'J.A.R.V.I.S.' : 'USER'}:</span>
-            <span class="msg-text">${escapeHtml(text)}</span>
+            <span class="msg-text">${escapeHtml(text)}${imgHtml}</span>
             <span class="msg-time">${timeStr}</span>
         `;
 
@@ -989,7 +993,10 @@ document.addEventListener("DOMContentLoaded", () => {
     function getOfflineWebReply(msg) {
         const q = msg.toLowerCase();
         if (q.includes("more alcohol") || q.includes("více alkoholu") || q.includes("need a drink")) {
-            return "Objednávám dvojitou skotskou a aktivuji protokol 'Páteční večer', pane. Vaše játra nicméně vznesla formální námitku.";
+            return {
+                reply: "Objednávám dvojitou skotskou a aktivuji protokol 'Páteční večer', pane. Vaše játra nicméně vznesla formální námitku.",
+                image_url: "assets/more_alcohol.svg"
+            };
         }
         if (q.includes("end it all") || q.includes("self destruct") || q.includes("sebedestrukc")) {
             return "Zahajuji sekvenci sebedestrukce za 3... 2... 1... Žertuji, pane. Doporučuji spíše House Party Protocol.";
@@ -1035,17 +1042,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (res.ok) {
                 const data = await res.json();
-                appendMessage("jarvis", data.reply);
+                appendMessage("jarvis", data.reply, data.image_url || null);
                 if (typeof data.spotify_running === "boolean") {
                     updateSpotifyStatus(data.spotify_running);
                 } else if (data.reply && data.reply.toLowerCase().includes("spotify")) {
                     updateSpotifyStatus(true);
                 }
             } else {
-                appendMessage("jarvis", getOfflineWebReply(msg));
+                const off = getOfflineWebReply(msg);
+                if (typeof off === "object") {
+                    appendMessage("jarvis", off.reply, off.image_url || null);
+                } else {
+                    appendMessage("jarvis", off);
+                }
             }
         } catch (e) {
-            appendMessage("jarvis", getOfflineWebReply(msg));
+            const off = getOfflineWebReply(msg);
+            if (typeof off === "object") {
+                appendMessage("jarvis", off.reply, off.image_url || null);
+            } else {
+                appendMessage("jarvis", off);
+            }
         } finally {
             if (!state.isSpeaking) {
                 state.coreTargetIntensity = 1.0;
