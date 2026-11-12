@@ -21,7 +21,7 @@ const G = {
             color: 0x38bdf8,
             cssColor: '#38bdf8',
             isPlayer: true,
-            stars: 14,
+            stars: 20,
             income: 5,
             status: 'self',
             techs: ['farming']
@@ -35,7 +35,7 @@ const G = {
             color: 0xef4444,
             cssColor: '#ef4444',
             isPlayer: false,
-            stars: 12,
+            stars: 20,
             income: 4,
             status: 'peace',
             techs: ['mining']
@@ -49,7 +49,7 @@ const G = {
             color: 0x06b6d4,
             cssColor: '#06b6d4',
             isPlayer: false,
-            stars: 12,
+            stars: 20,
             income: 4,
             status: 'peace',
             techs: ['sailing']
@@ -63,7 +63,7 @@ const G = {
             color: 0x10b981,
             cssColor: '#10b981',
             isPlayer: false,
-            stars: 12,
+            stars: 20,
             income: 4,
             status: 'peace',
             techs: ['archery']
@@ -119,9 +119,16 @@ class CivAudioEngine {
         if (!this.ctx) {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.ctx = new AudioContext();
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.setValueAtTime(0.7, this.ctx.currentTime);
+            this.masterGain.connect(this.ctx.destination);
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
         }
     }
     toggleAmbient() {
+        this.init();
         G.musicEnabled = !G.musicEnabled;
         const btn = document.getElementById('btn-toggle-music');
         if (btn) btn.innerText = G.musicEnabled ? '🎵' : '🔇';
@@ -138,7 +145,9 @@ class CivAudioEngine {
     startAmbient() {
         if (!G.musicEnabled) return;
         this.init();
-        if (this.ctx.state === 'suspended') this.ctx.resume();
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
 
         if (this.musicInterval) clearInterval(this.musicInterval);
         this.musicStep = 0;
@@ -161,6 +170,9 @@ class CivAudioEngine {
         const stepMs = 210; // ~142 BPM driving battle tempo
         this.musicInterval = setInterval(() => {
             if (!G.musicEnabled || !this.ctx) return;
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
             const t = this.ctx.currentTime;
             const s = this.musicStep;
 
@@ -170,10 +182,10 @@ class CivAudioEngine {
             const bassGain = this.ctx.createGain();
             bassOsc.type = 'sawtooth';
             bassOsc.frequency.setValueAtTime(bassFreq, t);
-            bassGain.gain.setValueAtTime(0.045, t);
-            bassGain.exponentialRampToValueAtTime(0.001, t + 0.18);
+            bassGain.gain.setValueAtTime(0.09, t);
+            bassGain.exponentialRampToValueAtTime(0.002, t + 0.18);
             bassOsc.connect(bassGain);
-            bassGain.connect(this.ctx.destination);
+            bassGain.connect(this.masterGain);
             bassOsc.start(t);
             bassOsc.stop(t + 0.19);
 
@@ -182,12 +194,12 @@ class CivAudioEngine {
                 const drumOsc = this.ctx.createOscillator();
                 const drumGain = this.ctx.createGain();
                 drumOsc.type = 'sine';
-                drumOsc.frequency.setValueAtTime(95, t);
-                drumOsc.frequency.exponentialRampToValueAtTime(32, t + 0.15);
-                drumGain.gain.setValueAtTime(0.18, t);
-                drumGain.exponentialRampToValueAtTime(0.001, t + 0.22);
+                drumOsc.frequency.setValueAtTime(110, t);
+                drumOsc.frequency.exponentialRampToValueAtTime(32, t + 0.16);
+                drumGain.gain.setValueAtTime(0.35, t);
+                drumGain.exponentialRampToValueAtTime(0.002, t + 0.22);
                 drumOsc.connect(drumGain);
-                drumGain.connect(this.ctx.destination);
+                drumGain.connect(this.masterGain);
                 drumOsc.start(t);
                 drumOsc.stop(t + 0.23);
             }
@@ -199,10 +211,10 @@ class CivAudioEngine {
                 const leadGain = this.ctx.createGain();
                 leadOsc.type = 'triangle';
                 leadOsc.frequency.setValueAtTime(melFreq, t);
-                leadGain.gain.setValueAtTime(0.07, t);
-                leadGain.exponentialRampToValueAtTime(0.002, t + 0.24);
+                leadGain.gain.setValueAtTime(0.14, t);
+                leadGain.exponentialRampToValueAtTime(0.003, t + 0.24);
                 leadOsc.connect(leadGain);
-                leadGain.connect(this.ctx.destination);
+                leadGain.connect(this.masterGain);
                 leadOsc.start(t);
                 leadOsc.stop(t + 0.25);
             }
@@ -1662,7 +1674,7 @@ window.trainUnitInCity = function(type, cityId) {
             { dx: 2, dy: 1 }, { dx: 1, dy: 2 }, { dx: -2, dy: 1 }, { dx: 1, dy: -2 }
         ];
 
-        // 1. Průchod: Hledej volnou louku nebo les bez města (pro osadníka)
+        // 1. Průchod: Hledej volné políčko bez jednotky a bez města
         for (let off of offsets) {
             const tx = city.gx + off.dx;
             const ty = city.gy + off.dy;
@@ -1680,14 +1692,15 @@ window.trainUnitInCity = function(type, cityId) {
             }
         }
 
-        // 2. Fallback: Pokud jsou kolem jen hory/voda ale žádné jednotky, uprav terén na průchodnou pláň, ať rekrutace NIKDY neselže!
+        // 2. Fallback: Pokud je v těsném sousedství překážka, uprav nejbližší volné políčko na louku
         if (!foundSpot) {
             for (let off of offsets) {
                 const tx = city.gx + off.dx;
                 const ty = city.gy + off.dy;
                 if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
                     const occ = scene.units.some(u => u.gx === tx && u.gy === ty);
-                    if (!occ) {
+                    const hasCityHere = scene.cities.some(c => c.gx === tx && c.gy === ty);
+                    if (!occ && !hasCityHere) {
                         scene.map[tx][ty].biome = 'plain';
                         scene.renderMapTiles();
                         spawnX = tx;
@@ -1804,10 +1817,11 @@ window.foundNewCityWithSettler = function() {
     // Remove settler unit
     scene.units = scene.units.filter(x => x !== u);
 
+    const activeFac = G.factions[G.activeFaction];
     const newCity = {
         id: Date.now(),
-        name: `Nové Solarium ${scene.cities.length + 1}`,
-        owner: 'solaria',
+        name: `Nové ${activeFac.name} ${scene.cities.filter(c => c.owner === G.activeFaction).length + 1}`,
+        owner: G.activeFaction,
         level: 1,
         progress: 0,
         progressMax: 2,
