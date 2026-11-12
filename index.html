@@ -11,12 +11,57 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=6.0">
+    <link rel="stylesheet" href="style.css?v=7.0">
     <!-- Phaser 3.80.1 Engine -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 <body>
     <div id="game-app">
+        <!-- New Game / Faction & Mode Selector Modal -->
+        <div id="start-modal" class="modal-backdrop">
+            <div class="modal-card start-card">
+                <div class="start-header">
+                    <span class="start-crown">👑</span>
+                    <h1>POLYTROPIA: CIVILIZACE HVĚZD</h1>
+                    <p class="start-subtitle">Zvol svou frakci, herní režim a veď své impérium k nadvládě</p>
+                </div>
+
+                <div class="mode-select-row">
+                    <span class="mode-label">HERNÍ REŽIM:</span>
+                    <div class="mode-toggle">
+                        <button type="button" class="mode-btn active" id="btn-mode-single" onclick="selectGameMode('single')">
+                            🤖 Hra proti AI
+                        </button>
+                        <button type="button" class="mode-btn" id="btn-mode-passplay" onclick="selectGameMode('passplay')">
+                            👥 Hotseat Multiplayer (Pass & Play)
+                        </button>
+                    </div>
+                </div>
+
+                <div class="factions-picker-grid" id="factions-picker-grid">
+                    <!-- Injected dynamically -->
+                </div>
+
+                <div class="start-actions">
+                    <button type="button" class="hud-btn start-launch-btn" id="btn-start-game" onclick="confirmStartGame()">
+                        ⚔️ ZAHÁJIT BITVU O SVĚT
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hotseat Turn Transition Splash Banner -->
+        <div id="hotseat-splash" class="modal-backdrop hidden">
+            <div class="modal-card splash-card">
+                <div class="splash-crest" id="splash-crest">☀️</div>
+                <h1 id="splash-title">NA TAHU: SOLARIA</h1>
+                <p id="splash-desc">Pedej zařízení dalšímu hráči a klikni pro pokračování.</p>
+                <button type="button" class="hud-btn start-launch-btn" id="btn-hotseat-ready" onclick="dismissHotseatSplash()">
+                    🛡️ JSEM PŘIPRAVEN HRÁT
+                </button>
+            </div>
+        </div>
+
         <!-- Canvas Container -->
         <div id="phaser-viewport"></div>
 
@@ -140,6 +185,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="game.js?v=6.0"></script>
+    <script src="game.js?v=7.0"></script>
 </body>
 </html>
