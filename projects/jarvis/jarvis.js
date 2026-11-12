@@ -196,16 +196,63 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
 
-    function speakText(text) {
-        if (!state.ttsEnabled || !('speechSynthesis' in window)) return;
-        try {
-            window.speechSynthesis.cancel();
-            if (window.speechSynthesis.paused) {
-                window.speechSynthesis.resume();
-            }
-        } catch(e){}
+    let currentTtsAudio = null;
 
-        const cleanText = text.replace(/[*#_`]/g, "");
+    async function speakText(text) {
+        if (!state.ttsEnabled) return;
+        if (currentTtsAudio) {
+            try { currentTtsAudio.pause(); } catch (e) {}
+            currentTtsAudio = null;
+        }
+        if ('speechSynthesis' in window) {
+            try {
+                window.speechSynthesis.cancel();
+                if (window.speechSynthesis.paused) {
+                    window.speechSynthesis.resume();
+                }
+            } catch (e) {}
+        }
+
+        const cleanText = text.replace(/[*#_`]/g, "").trim();
+        if (!cleanText) return;
+
+        try {
+            const res = await fetch(apiUrl("/api/tts"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: cleanText })
+            });
+            if (res.ok) {
+                const blob = await res.blob();
+                const audioUrl = URL.createObjectURL(blob);
+                const audio = new Audio(audioUrl);
+                currentTtsAudio = audio;
+                audio.onplay = () => {
+                    state.isSpeaking = true;
+                    state.coreTargetIntensity = 2.2;
+                    coreStatusEl.textContent = "TRANSMITTING";
+                    coreStatusEl.style.color = "#00f3ff";
+                };
+                audio.onended = () => {
+                    URL.revokeObjectURL(audioUrl);
+                    state.isSpeaking = false;
+                    state.coreTargetIntensity = 1.0;
+                    coreStatusEl.textContent = "ONLINE";
+                    coreStatusEl.style.color = "#ffffff";
+                };
+                audio.onerror = () => {
+                    URL.revokeObjectURL(audioUrl);
+                    state.isSpeaking = false;
+                    state.coreTargetIntensity = 1.0;
+                    coreStatusEl.textContent = "ONLINE";
+                    coreStatusEl.style.color = "#ffffff";
+                };
+                await audio.play();
+                return;
+            }
+        } catch (e) {}
+
+        if (!('speechSynthesis' in window)) return;
         const utterance = new SpeechSynthesisUtterance(cleanText);
         
         if (voices.length === 0) voices = window.speechSynthesis.getVoices();
