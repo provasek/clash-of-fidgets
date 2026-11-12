@@ -194,7 +194,7 @@ class CivAudioEngine {
             bassOsc.type = 'sawtooth';
             bassOsc.frequency.setValueAtTime(bassFreq, t);
             bassGain.gain.setValueAtTime(0.18, t);
-            bassGain.exponentialRampToValueAtTime(0.003, t + 0.18);
+            bassGain.gain.exponentialRampToValueAtTime(0.003, t + 0.18);
             bassOsc.connect(bassGain);
             bassGain.connect(this.masterGain);
             bassOsc.start(t);
@@ -208,7 +208,7 @@ class CivAudioEngine {
                 drumOsc.frequency.setValueAtTime(120, t);
                 drumOsc.frequency.exponentialRampToValueAtTime(32, t + 0.16);
                 drumGain.gain.setValueAtTime(0.5, t);
-                drumGain.exponentialRampToValueAtTime(0.002, t + 0.22);
+                drumGain.gain.exponentialRampToValueAtTime(0.002, t + 0.22);
                 drumOsc.connect(drumGain);
                 drumGain.connect(this.masterGain);
                 drumOsc.start(t);
@@ -223,7 +223,7 @@ class CivAudioEngine {
                 leadOsc.type = 'triangle';
                 leadOsc.frequency.setValueAtTime(melFreq, t);
                 leadGain.gain.setValueAtTime(0.28, t);
-                leadGain.exponentialRampToValueAtTime(0.005, t + 0.24);
+                leadGain.gain.exponentialRampToValueAtTime(0.005, t + 0.24);
                 leadOsc.connect(leadGain);
                 leadGain.connect(this.masterGain);
                 leadOsc.start(t);
@@ -745,6 +745,7 @@ class PolytropiaScene extends Phaser.Scene {
 
                 spr.on('pointerdown', (pointer) => {
                     if (this.hasDragged) return;
+                    if (pointer.event && pointer.event.target && pointer.event.target.tagName !== 'CANVAS') return;
                     this.onTileClicked(gx, gy, pointer);
                 });
 
@@ -834,6 +835,7 @@ class PolytropiaScene extends Phaser.Scene {
 
             const onCityClick = (p) => {
                 p.event.stopPropagation();
+                if (p.event && p.event.target && p.event.target.tagName !== 'CANVAS') return;
                 if (this.hasDragged) return;
 
                 // Pokud je vybraná jednotka a toto město je platným cílem pohybu/útoku, proveď akci!
@@ -902,6 +904,7 @@ class PolytropiaScene extends Phaser.Scene {
 
             const onUnitClick = (p) => {
                 p.event.stopPropagation();
+                if (p.event && p.event.target && p.event.target.tagName !== 'CANVAS') return;
                 if (this.hasDragged) return;
 
                 if (G.selectedEntity && G.selectedEntity.type === 'unit' && G.selectedEntity.data.owner === G.activeFaction && u.owner !== G.activeFaction) {
@@ -975,6 +978,7 @@ class PolytropiaScene extends Phaser.Scene {
 
     setupCameraPanning() {
         this.input.on('pointerdown', (p) => {
+            if (p.event && p.event.target && p.event.target.tagName !== 'CANVAS') return;
             this.isPointerDown = true;
             this.hasDragged = false;
             this.dragStartX = p.x;
@@ -2747,6 +2751,9 @@ const config = {
     height: window.innerHeight,
     transparent: true,
     audio: { noAudio: true }, // Web Audio řeší přímo CivAudioEngine
+    input: {
+        windowEvents: false
+    },
     scene: [PolytropiaScene],
     scale: {
         mode: Phaser.Scale.RESIZE,
@@ -2765,6 +2772,28 @@ window.addEventListener('load', () => {
     };
     window.addEventListener('pointerdown', unlockHandler);
     window.addEventListener('keydown', unlockHandler);
+
+    // Izolace všech UI kontejnerů před probubláváním na Phaser canvas / window
+    const uiContainers = [
+        'entity-dock',
+        'civ-hud',
+        'minimap-panel',
+        'tech-modal',
+        'diplo-modal',
+        'start-modal',
+        'hotseat-splash',
+        'ruins-modal',
+        'victory-modal'
+    ];
+    uiContainers.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend'].forEach(evt => {
+            el.addEventListener(evt, (e) => {
+                e.stopPropagation();
+            }, { passive: false });
+        });
+    });
 
     document.getElementById('btn-end-turn').addEventListener('click', executeEndTurn);
 
