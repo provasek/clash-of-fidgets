@@ -48,7 +48,10 @@
                             🌊 Oceán & Kontinenty (24×24)
                         </button>
                         <button type="button" class="mode-btn" id="btn-map-huge" onclick="selectMapSize('huge')">
-                            🌍 Obrovský Svět (28×28)
+                            🌍 Obrovský (28×28)
+                        </button>
+                        <button type="button" class="mode-btn" id="btn-map-gigantic" onclick="selectMapSize('gigantic')">
+                            🪐 Gigantický (36×36)
                         </button>
                     </div>
                 </div>
@@ -206,6 +209,11 @@
                 <h1 id="vic-title">SLAVNÉ VÍTĚZSTVÍ!</h1>
                 <p id="vic-desc">Tvá civilizace ovládla známý svět a vybudovala věčné impérium.</p>
                 <div class="final-score">Konečné skóre: <strong id="vic-score">3,250</strong></div>
+                <div class="endgame-stats-container" style="margin: 15px 0; background: rgba(15,23,42,0.8); border-radius: 12px; padding: 12px; border: 1px solid #334155;">
+                    <div style="font-size: 13px; font-weight: 700; color: #38bdf8; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">📊 Vývoj Impérií v čase</div>
+                    <canvas id="endgame-chart-canvas" width="460" height="150" style="width: 100%; height: 150px; display: block; border-radius: 6px;"></canvas>
+                    <div id="endgame-chart-legend" style="display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 11px; font-weight: 600;"></div>
+                </div>
                 <button class="hud-btn end-turn-btn" id="btn-restart-game">Hrát Novou Partii</button>
             </div>
         </div>
@@ -215,6 +223,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="game.js?v=11.0"></script>
+    <script src="game.js?v=12.0"></script>
 </body>
 </html>

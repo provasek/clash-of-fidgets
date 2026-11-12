@@ -76,6 +76,8 @@ const G = {
     gameOver: false,
     musicEnabled: true,
     stargateProject: null, // { cityId, turnsLeft: 5 }
+    heroesSummoned: {},    // { solaria: true, khardurn: true, ... }
+    turnHistory: [],       // Historie pro závěrečný graf vývoje
     roads: [] // { gx, gy }
 };
 
@@ -85,14 +87,14 @@ const TECH_TREE = {
     farming: { id: 'farming', name: 'Zemědělství', tier: 1, req: [], icon: '🌾', cost: 5, desc: 'Umožňuje kultivovat pole na obilné lány (+2 k růstu města).' },
     mining: { id: 'mining', name: 'Hornictví', tier: 1, req: [], icon: '⛏️', cost: 6, desc: 'Umožňuje hloubit doly na horách (+3 ⭐/tah příjem).' },
     archery: { id: 'archery', name: 'Lukostřelba', tier: 1, req: [], icon: '🏹', cost: 7, desc: 'Odemyká výcvik Lučištníků (střelba na dálku 2 políčka).' },
-    sailing: { id: 'sailing', name: 'Mořeplavba', tier: 1, req: [], icon: '⛵', cost: 7, desc: 'Jednotky mohou vstupovat na vodu (člun) a stavět Přístavy.' },
+    sailing: { id: 'sailing', name: 'Mořeplavba', tier: 1, req: [], icon: '⛵', cost: 7, desc: 'Jednotky mohou vstupovat na vodu (člun) a pobřežní města mohou stavět Přístavy (+2 ⭐).' },
 
     // TIER 2: SPECIALIZACE A ROZVOJ (VĚTVE)
     roads: { id: 'roads', name: 'Silniční Síť', tier: 2, req: ['farming'], icon: '🛤️', cost: 9, desc: 'Umožňuje dláždit silnice (rychlejší pohyb a obchod mezi městy).' },
     smithing: { id: 'smithing', name: 'Kovářství', tier: 2, req: ['mining'], icon: '⚔️', cost: 11, desc: 'Odemyká těžké zbraně a Rytíře na koních (pohyb 2, vysoký útok).' },
     fortification: { id: 'fortification', name: 'Opevnění & Hradby', tier: 2, req: ['mining'], icon: '🏰', cost: 10, desc: 'Stavba kamenných hradeb na městech (+3 k obraně posádky).' },
     siege: { id: 'siege', name: 'Obléhací Stroje', tier: 2, req: ['archery', 'smithing'], icon: '💣', cost: 13, desc: 'Odemyká Katapulty s dlouhým dostřelem (3 pole) a bonusem proti městům.' },
-    navigation: { id: 'navigation', name: 'Zaoceánská Plavba', tier: 2, req: ['sailing'], icon: '🚢', cost: 12, desc: 'Odemyká těžké Bitevní Koráby pro bombardování pobřeží z moře.' },
+    navigation: { id: 'navigation', name: 'Zaoceánská Plavba', tier: 2, req: ['sailing'], icon: '🚢', cost: 12, desc: 'Odemyká Bitevní Koráby a stavbu Majáků (+2 ⭐, odkrývá mlhu do dálky 5 polí).' },
 
     // TIER 3: VRCHOLNÁ CIVILIZACE & APEX
     philosophy: { id: 'philosophy', name: 'Filozofie & Vědy', tier: 3, req: ['roads', 'fortification'], icon: '📜', cost: 18, desc: 'Kulturní osvícení (+3 ⭐ příjem všech měst a zrychlení vědy).' },
@@ -107,7 +109,14 @@ const UNIT_TYPES = {
     catapult: { name: 'Katapult', icon: '💣', hp: 10, maxHp: 10, atk: 8, def: 0, range: 3, move: 1, cost: 9, siege: true },
     settler: { name: 'Osadník', icon: '⛺', hp: 6, maxHp: 6, atk: 0, def: 1, range: 1, move: 1, cost: 7 },
     boat: { name: 'Válečný Člun', icon: '⛵', hp: 12, maxHp: 12, atk: 4, def: 2, range: 2, move: 2, cost: 5 },
-    battleship: { name: 'Bitevní Koráb', icon: '🚢', hp: 18, maxHp: 18, atk: 7, def: 3, range: 2, move: 2, cost: 12 }
+    battleship: { name: 'Bitevní Koráb', icon: '🚢', hp: 18, maxHp: 18, atk: 7, def: 3, range: 2, move: 2, cost: 12 },
+    // Neutrální Mořská Bestie
+    kraken: { name: 'Mořský Kraken', icon: '🐙', hp: 25, maxHp: 25, atk: 5, def: 3, range: 1, move: 1, cost: 0, neutral: true },
+    // Legendární Šampióni Frakcí
+    hero_solaria: { name: 'Císařský Paladin', icon: '👑', hp: 20, maxHp: 20, atk: 5, def: 4, range: 1, move: 2, cost: 12, isHero: true, aura: 'Aura Císaře: +2 Obrana všem sousedním spojencům' },
+    hero_khardurn: { name: 'Drtič Skal', icon: '🔨', hp: 22, maxHp: 22, atk: 6, def: 3, range: 1, move: 1, cost: 12, isHero: true, aura: 'Drtič: Dvojitý úder proti hradbám měst' },
+    hero_aquaria: { name: 'Vládce Přílivu', icon: '🔱', hp: 18, maxHp: 18, atk: 5, def: 3, range: 2, move: 2, cost: 12, isHero: true, aura: 'Příliv: +1 dostřel a pohyb lodí v dosahu' },
+    hero_sylvaen: { name: 'Strážce Hvozdu', icon: '🧝', hp: 16, maxHp: 16, atk: 5, def: 2, range: 2, move: 2, cost: 12, isHero: true, aura: 'Přepad z lesa: Útok z lesa bez protiúderu' }
 };
 
 // --- PROCEDURAL AUDIO & AGE OF WAR STYLE BATTLE SOUNDTRACK ---
@@ -569,6 +578,86 @@ function generatePolytopiaTextures(scene) {
         gfx.generateTexture('feat_shipwreck', 36, 32);
     }
 
+    // 7. PŘÍSTAVY A MAJÁKY
+    if (!scene.textures.exists('feat_harbor')) {
+        gfx.clear();
+        gfx.fillStyle(0x78350f, 1);
+        gfx.fillRect(6, 14, 28, 6);
+        gfx.fillStyle(0x451a03, 1);
+        gfx.fillRect(8, 18, 4, 8);
+        gfx.fillRect(28, 18, 4, 8);
+        gfx.lineStyle(2, 0xfacc15, 1);
+        gfx.strokeCircle(20, 10, 4);
+        gfx.generateTexture('feat_harbor', 40, 32);
+    }
+    if (!scene.textures.exists('feat_lighthouse')) {
+        gfx.clear();
+        gfx.fillStyle(0x94a3b8, 1);
+        gfx.beginPath(); gfx.moveTo(14, 28); gfx.lineTo(26, 28); gfx.lineTo(23, 10); gfx.lineTo(17, 10); gfx.closePath(); gfx.fillPath();
+        gfx.fillStyle(0xef4444, 1);
+        gfx.fillRect(16, 16, 8, 4);
+        gfx.fillStyle(0xfef08a, 0.95);
+        gfx.fillCircle(20, 8, 5);
+        gfx.lineStyle(1, 0xfacc15, 0.8);
+        gfx.strokeCircle(20, 8, 8);
+        gfx.generateTexture('feat_lighthouse', 40, 36);
+    }
+
+    // 8. MOŘSKÝ KRAKEN & ŠAMPIÓNI
+    if (!scene.textures.exists('unit_kraken')) {
+        gfx.clear();
+        gfx.fillStyle(0x7e22ce, 1);
+        gfx.fillCircle(20, 16, 12);
+        gfx.fillStyle(0xef4444, 1);
+        gfx.fillCircle(16, 14, 2.5); gfx.fillCircle(24, 14, 2.5);
+        gfx.lineStyle(3, 0xa855f7, 1);
+        gfx.beginPath();
+        gfx.moveTo(10, 22); gfx.lineTo(4, 32);
+        gfx.moveTo(16, 26); gfx.lineTo(12, 34);
+        gfx.moveTo(24, 26); gfx.lineTo(28, 34);
+        gfx.moveTo(30, 22); gfx.lineTo(36, 32);
+        gfx.strokePath();
+        gfx.generateTexture('unit_kraken', 40, 38);
+    }
+    if (!scene.textures.exists('unit_hero_solaria')) {
+        gfx.clear();
+        gfx.fillStyle(0xfacc15, 1);
+        gfx.fillCircle(20, 14, 10);
+        gfx.fillStyle(0x38bdf8, 1);
+        gfx.fillTriangle(20, 4, 12, 0, 28, 0); // Koruna
+        gfx.lineStyle(3, 0xffffff, 1);
+        gfx.beginPath(); gfx.moveTo(10, 28); gfx.lineTo(30, 8); gfx.strokePath(); // Zlatý meč
+        gfx.generateTexture('unit_hero_solaria', 44, 40);
+    }
+    if (!scene.textures.exists('unit_hero_khardurn')) {
+        gfx.clear();
+        gfx.fillStyle(0xb91c1c, 1);
+        gfx.fillCircle(20, 16, 12);
+        gfx.fillStyle(0x1e293b, 1);
+        gfx.fillRect(16, 6, 8, 24);
+        gfx.fillStyle(0xf97316, 1);
+        gfx.fillRect(10, 6, 20, 8); // Obří palice
+        gfx.generateTexture('unit_hero_khardurn', 44, 40);
+    }
+    if (!scene.textures.exists('unit_hero_aquaria')) {
+        gfx.clear();
+        gfx.fillStyle(0x06b6d4, 1);
+        gfx.fillCircle(20, 16, 11);
+        gfx.lineStyle(2, 0xfde047, 1);
+        gfx.beginPath(); gfx.moveTo(20, 4); gfx.lineTo(20, 32); gfx.moveTo(14, 10); gfx.lineTo(26, 10); gfx.strokePath(); // Trojzubec
+        gfx.generateTexture('unit_hero_aquaria', 44, 40);
+    }
+    if (!scene.textures.exists('unit_hero_sylvaen')) {
+        gfx.clear();
+        gfx.fillStyle(0x047857, 1);
+        gfx.fillCircle(20, 16, 10);
+        gfx.fillStyle(0x10b981, 1);
+        gfx.fillTriangle(20, 6, 14, 18, 26, 18); // Elfská kápě
+        gfx.lineStyle(2, 0xfde047, 1);
+        gfx.beginPath(); gfx.arc(28, 18, 10, -Math.PI / 2, Math.PI / 2); gfx.strokePath(); // Zelený luk
+        gfx.generateTexture('unit_hero_sylvaen', 44, 40);
+    }
+
     gfx.destroy();
 }
 
@@ -719,7 +808,9 @@ class PolytropiaScene extends Phaser.Scene {
                     hasFish,
                     hasShipwreck,
                     hasFarm: false,
-                    hasMine: false
+                    hasMine: false,
+                    hasHarbor: false,
+                    hasLighthouse: false
                 };
 
                 this.fog[gx][gy] = true;
@@ -727,8 +818,8 @@ class PolytropiaScene extends Phaser.Scene {
         }
 
         // 4 Civilizace a jejich hlavní města na vlastních kontinentech
-        const pad = 3;
-        const far = N - 4;
+        const pad = Math.max(3, Math.floor(N * 0.12));
+        const far = N - 1 - pad;
         const diff = G.aiDifficulty || 'hard';
         const aiIncome = diff === 'normal' ? 3 : (diff === 'hard' ? 5 : 7);
 
@@ -795,6 +886,26 @@ class PolytropiaScene extends Phaser.Scene {
             { id: 401, owner: 'sylvaen', type: 'warrior', gx: far, gy: pad, hp: 10, maxHp: 10, moved: false, attacked: false, kills: 0, isVeteran: false },
             { id: 402, owner: 'sylvaen', type: 'archer', gx: far - 1, gy: pad, hp: 8, maxHp: 8, moved: false, attacked: false, kills: 0, isVeteran: false }
         ];
+
+        // Neutrální Mořský Kraken hlídající centrální oceán a poklady
+        const krX = Math.floor(mid) + 1;
+        const krY = Math.floor(mid) - 1;
+        if (krX >= 0 && krX < N && krY >= 0 && krY < N) {
+            this.map[krX][krY].biome = 'water';
+            this.units.push({
+                id: 9001,
+                owner: 'neutral',
+                type: 'kraken',
+                gx: krX,
+                gy: krY,
+                hp: 25,
+                maxHp: 25,
+                moved: false,
+                attacked: false,
+                kills: 0,
+                isVeteran: false
+            });
+        }
     }
 
     renderMapTiles() {
@@ -865,6 +976,14 @@ class PolytropiaScene extends Phaser.Scene {
                     const fsh = this.add.image(sx, sy, 'feat_fish').setOrigin(0.5, 0.5);
                     spr.fishSprite = fsh;
                     this.featureLayer.add(fsh);
+                } else if (data.hasHarbor) {
+                    const hb = this.add.image(sx, sy - 2, 'feat_harbor').setOrigin(0.5, 0.6);
+                    spr.harborSprite = hb;
+                    this.featureLayer.add(hb);
+                } else if (data.hasLighthouse) {
+                    const lh = this.add.image(sx, sy - 6, 'feat_lighthouse').setOrigin(0.5, 0.7);
+                    spr.lighthouseSprite = lh;
+                    this.featureLayer.add(lh);
                 }
                 if (data.hasFarm) {
                     const f = this.add.image(sx, sy, 'feat_farm').setOrigin(0.5, 0.5);
@@ -975,13 +1094,15 @@ class PolytropiaScene extends Phaser.Scene {
 
             const faction = G.factions[u.owner];
             let texKey = `unit_${u.type}`;
-            if (this.map[u.gx][u.gy].biome === 'water') {
+            if (u.type === 'kraken') {
+                texKey = 'unit_kraken';
+            } else if (this.map[u.gx][u.gy].biome === 'water') {
                 texKey = (u.type === 'battleship') ? 'unit_battleship' : 'unit_boat';
             }
 
             const spr = this.add.image(sx, sy, texKey);
             spr.setOrigin(0.5, 0.6);
-            if (u.type !== 'settler') {
+            if (u.type !== 'settler' && u.type !== 'kraken' && !u.type.startsWith('hero_')) {
                 spr.setTint(faction ? faction.color : 0xffffff);
             }
             // Kompaktní kruhový hitbox, aby jednotka nekradla kliknutí okolním políčkům
@@ -1403,8 +1524,17 @@ class PolytropiaScene extends Phaser.Scene {
             terrainDefBonus += (defInCity.hasWalls ? 4 : 2);
         }
 
-        // Katapult ignoruje zdi a má masivní obléhací bonus proti městům
+        // Hrdinská aura: Císařský Paladin Solaria dává +2 obranu okolním spojencům
+        const hasSolariaHeroNearby = this.units.some(u => u.owner === defender.owner && u.type === 'hero_solaria' && Math.max(Math.abs(u.gx - defender.gx), Math.abs(u.gy - defender.gy)) <= 1);
+        if (hasSolariaHeroNearby) {
+            terrainDefBonus += 2;
+        }
+
+        // Katapult a Drtič Skal (Khar-Durn Hero) drtí opevnění měst
         let siegeBonus = (atkDef.siege && defInCity) ? 5 : 0;
+        if (attacker.type === 'hero_khardurn' && defInCity) {
+            siegeBonus += 6;
+        }
         const effectiveDef = atkDef.siege ? 0 : (defDef.def + terrainDefBonus);
 
         const vetAtk = attacker.isVeteran ? 1 : 0;
@@ -1416,16 +1546,25 @@ class PolytropiaScene extends Phaser.Scene {
             showToast(`⚔️ Zásah! Způsobeno ${dmg} poškození (Obrana cíle: ${effectiveDef})!`);
         }
 
-        // Protiútok pouze pokud je obránce v dosahu 1 a má bojový útok (obrana proti bezbranným osadníkům)
+        // Protiútok pouze pokud je obránce v dosahu 1 a má bojový útok (Sylvaen Hero útočící z lesa ruší odvetu)
+        const isSylvaenForestAmbush = (attacker.type === 'hero_sylvaen' && this.map[attacker.gx][attacker.gy].biome === 'forest');
         const dist = Math.max(Math.abs(attacker.gx - defender.gx), Math.abs(attacker.gy - defender.gy));
-        if (defender.hp > 0 && dist === 1 && !atkDef.siege && defDef.atk > 0) {
+        if (defender.hp > 0 && dist === 1 && !atkDef.siege && defDef.atk > 0 && !isSylvaenForestAmbush) {
             const counterDmg = Math.max(1, Math.floor(defDef.atk / 2));
             attacker.hp -= counterDmg;
         }
 
         // Povýšení na veterána při likvidaci nepřátel
         if (defender.hp <= 0) {
-            if (attacker.owner === G.activeFaction) showToast(`💀 Nepřítel byl zničen!`);
+            if (defender.type === 'kraken') {
+                SFX.play('level_up');
+                showToast('🐙 BÁJNÝ MOŘSKÝ KRAKEN BYL PORAŽEN! Získán Legendární poklad hlubin +30 ⭐!');
+                if (G.factions[attacker.owner]) G.factions[attacker.owner].stars += 30;
+                G.score += 250;
+                triggerConfetti(this, tx, ty);
+            } else if (attacker.owner === G.activeFaction) {
+                showToast(`💀 Nepřítel byl zničen!`);
+            }
             this.units = this.units.filter(x => x !== defender);
             if (attacker.owner === G.activeFaction) G.score += 30;
 
@@ -1802,6 +1941,11 @@ function openCityDock(city) {
         ${garrisonHtml}
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;">
             ${stargateProjectHtml}
+            ${(city.isCapital && !G.heroesSummoned[G.activeFaction]) ? `
+                <button type="button" class="action-chip ${facStars < 12 ? 'disabled' : ''}" style="border-color:#f59e0b; background:#451a03;" onpointerdown="event.stopPropagation()" onclick="summonFactionHero(${city.id})">
+                    <span>👑 Povolat Šampióna (${UNIT_TYPES[`hero_${G.activeFaction}`].name})</span> <span class="cost">(12 ⭐)</span>
+                </button>
+            ` : ''}
             <button type="button" class="action-chip ${facStars < 3 ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="trainUnitInCity('warrior', ${city.id})">
                 <span>🗡️ Válečník</span> <span class="cost">(3 ⭐)</span>
             </button>
@@ -1827,10 +1971,16 @@ function openCityDock(city) {
                 <button type="button" class="action-chip ${facStars < 5 ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="trainUnitInCity('boat', ${city.id})">
                     <span>⛵ Válečný Člun</span> <span class="cost">(5 ⭐)</span>
                 </button>
+                <button type="button" class="action-chip ${facStars < 7 ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="buildHarborAtCity(${city.id})">
+                    <span>⚓ Postavit Přístav</span> <span class="cost">(7 ⭐)</span>
+                </button>
             ` : ''}
             ${(isCoastal && techs.includes('navigation')) ? `
                 <button type="button" class="action-chip ${facStars < 12 ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="trainUnitInCity('battleship', ${city.id})">
                     <span>🚢 Bitevní Koráb</span> <span class="cost">(12 ⭐)</span>
+                </button>
+                <button type="button" class="action-chip ${facStars < 8 ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="buildLighthouseAtCity(${city.id})">
+                    <span>🗼 Vybudovat Maják</span> <span class="cost">(8 ⭐)</span>
                 </button>
             ` : ''}
             <button type="button" class="action-chip ${facStars < 5 ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="improveCityFarmland(${city.id})">
@@ -2301,6 +2451,174 @@ window.buildRoadAtCity = function(cityId) {
     showToast('🛤️ Městská cesta byla vydlážděna!');
 };
 
+window.summonFactionHero = function(cityId) {
+    const curFac = G.factions[G.activeFaction];
+    if (G.heroesSummoned[G.activeFaction]) {
+        showToast('⚠️ Tvůj Legendární Šampión již byl v této hře povolán!');
+        return;
+    }
+    if (curFac.stars < 12) {
+        showToast('❌ Nedostatek Hvězd ⭐ na povolání Šampióna (potřeba 12 ⭐)!');
+        return;
+    }
+
+    const scene = game.scene.getScene('PolytropiaScene');
+    const city = scene.cities.find(c => c.id === cityId);
+    if (!city) return;
+
+    let spawnX = city.gx;
+    let spawnY = city.gy;
+    const isOccupied = scene.units.some(u => u.gx === city.gx && u.gy === city.gy);
+
+    if (isOccupied) {
+        const offsets = [
+            { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 },
+            { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }
+        ];
+        let foundSpawn = false;
+        for (let off of offsets) {
+            const nx = city.gx + off.dx;
+            const ny = city.gy + off.dy;
+            if (nx >= 0 && nx < G.gridSize && ny >= 0 && ny < G.gridSize) {
+                const occ = scene.units.some(u => u.gx === nx && u.gy === ny);
+                if (!occ && scene.map[nx][ny].biome !== 'water' && scene.map[nx][ny].biome !== 'mountain') {
+                    spawnX = nx;
+                    spawnY = ny;
+                    foundSpawn = true;
+                    break;
+                }
+            }
+        }
+        if (!foundSpawn) {
+            showToast('⚠️ Kolem města není volné pole pro povolání šampióna!');
+            return;
+        }
+    }
+
+    curFac.stars -= 12;
+    G.heroesSummoned[G.activeFaction] = true;
+
+    const heroType = `hero_${G.activeFaction}`;
+    const heroDef = UNIT_TYPES[heroType];
+    const newHero = {
+        id: Date.now() + Math.random(),
+        owner: G.activeFaction,
+        type: heroType,
+        gx: spawnX,
+        gy: spawnY,
+        hp: heroDef.maxHp,
+        maxHp: heroDef.maxHp,
+        moved: false,
+        attacked: false,
+        kills: 0,
+        isVeteran: true
+    };
+
+    scene.units.push(newHero);
+    SFX.play('level_up');
+    triggerConfetti(scene, (spawnX - spawnY) * (scene.tileW / 2), (spawnX + spawnY) * (scene.tileH / 2));
+    showToast(`👑 POVOLÁN ŠAMPIÓN: ${heroDef.name}! ${heroDef.aura}`);
+
+    scene.renderUnits();
+    updateHUD();
+    openCityDock(city);
+};
+
+window.buildHarborAtCity = function(cityId) {
+    const curFac = G.factions[G.activeFaction];
+    if (curFac.stars < 7) {
+        showToast('❌ Nedostatek Hvězd na stavbu přístavu (potřeba 7 ⭐)!');
+        return;
+    }
+
+    const scene = game.scene.getScene('PolytropiaScene');
+    const city = scene.cities.find(c => c.id === cityId);
+    if (!city) return;
+
+    const offsets = [
+        { dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
+        { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }
+    ];
+
+    let targetWater = null;
+    for (let off of offsets) {
+        const tx = city.gx + off.dx;
+        const ty = city.gy + off.dy;
+        if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
+            const tile = scene.map[tx][ty];
+            if (tile.biome === 'water' && !tile.hasHarbor && !tile.hasLighthouse) {
+                targetWater = tile;
+                break;
+            }
+        }
+    }
+
+    if (!targetWater) {
+        showToast('⚠️ V okolí města není žádná volná mořská dlaždice pro přístav!');
+        return;
+    }
+
+    curFac.stars -= 7;
+    targetWater.hasHarbor = true;
+    city.income = (city.income || 3) + 2;
+
+    scene.renderMapTiles();
+    SFX.play('level_up');
+    showToast(`⚓ PŘÍSTAV DOKONČEN! Město ${city.name} získává +2 ⭐/tah a lodní kotviště.`);
+
+    updateHUD();
+    openCityDock(city);
+};
+
+window.buildLighthouseAtCity = function(cityId) {
+    const curFac = G.factions[G.activeFaction];
+    if (curFac.stars < 8) {
+        showToast('❌ Nedostatek Hvězd na stavbu majáku (potřeba 8 ⭐)!');
+        return;
+    }
+
+    const scene = game.scene.getScene('PolytropiaScene');
+    const city = scene.cities.find(c => c.id === cityId);
+    if (!city) return;
+
+    const offsets = [
+        { dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
+        { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }
+    ];
+
+    let targetTile = null;
+    for (let off of offsets) {
+        const tx = city.gx + off.dx;
+        const ty = city.gy + off.dy;
+        if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
+            const tile = scene.map[tx][ty];
+            if ((tile.biome === 'water' || tile.biome === 'plain') && !tile.hasHarbor && !tile.hasLighthouse) {
+                targetTile = tile;
+                break;
+            }
+        }
+    }
+
+    if (!targetTile) {
+        showToast('⚠️ V okolí města není žádné vhodné pobřežní pole pro maják!');
+        return;
+    }
+
+    curFac.stars -= 8;
+    targetTile.hasLighthouse = true;
+    city.income = (city.income || 3) + 2;
+
+    scene.revealFogAround(targetTile.gx, targetTile.gy, 5);
+    scene.renderMapTiles();
+    scene.renderFogOfWar();
+    SFX.play('level_up');
+    showToast(`🗼 MAJÁK POSTAVEN! Získán příjem +2 ⭐/tah a rozsvícen oceán v okruhu 5 polí.`);
+
+    updateHUD();
+    renderMinimap();
+    openCityDock(city);
+};
+
 window.startStargateProject = function(cityId) {
     const curFac = G.factions[G.activeFaction];
     const scene = game.scene.getScene('PolytropiaScene');
@@ -2649,6 +2967,8 @@ function getFactionIncome(factionKey) {
                     const fy = c.gy + off.dy;
                     if (fx >= 0 && fx < G.gridSize && fy >= 0 && fy < G.gridSize) {
                         if (scene.map[fx][fy].hasFish) total += 1;
+                        if (scene.map[fx][fy].hasHarbor) total += 2;
+                        if (scene.map[fx][fy].hasLighthouse) total += 2;
                     }
                 });
             }
@@ -2797,7 +3117,28 @@ function executeEndTurn() {
     updateHUD();
     renderMinimap();
 
+    recordTurnSnapshot(scene);
     scene.checkVictoryConditions();
+}
+
+function recordTurnSnapshot(scene) {
+    if (!G.turnHistory) G.turnHistory = [];
+    const snap = {
+        turn: G.turn,
+        data: {}
+    };
+    Object.keys(G.factions).forEach(fKey => {
+        const cCount = scene ? scene.cities.filter(c => c.owner === fKey).length : 0;
+        const uCount = scene ? scene.units.filter(u => u.owner === fKey).length : 0;
+        const inc = getFactionIncome(fKey);
+        snap.data[fKey] = {
+            stars: G.factions[fKey].stars,
+            income: inc,
+            cities: cCount,
+            units: uCount
+        };
+    });
+    G.turnHistory.push(snap);
 }
 
 function recalculateFogForActiveFaction(scene) {
@@ -3483,6 +3824,7 @@ function showVictoryScreen(msg) {
     document.getElementById('vic-title').style.color = '#f59e0b';
     document.getElementById('vic-desc').innerText = msg;
     document.getElementById('vic-score').innerText = G.score;
+    renderEndGameChart();
     document.getElementById('game-over-modal').classList.remove('hidden');
 }
 
@@ -3493,7 +3835,94 @@ function showDefeatScreen(msg) {
     document.getElementById('vic-title').style.color = '#ef4444';
     document.getElementById('vic-desc').innerText = msg;
     document.getElementById('vic-score').innerText = G.score;
+    renderEndGameChart();
     document.getElementById('game-over-modal').classList.remove('hidden');
+}
+
+function renderEndGameChart() {
+    const canvas = document.getElementById('endgame-chart-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const legend = document.getElementById('endgame-chart-legend');
+    if (legend) {
+        legend.innerHTML = Object.keys(G.factions).map(fKey => {
+            const f = G.factions[fKey];
+            return `<span style="color:${f.cssColor}; display:inline-flex; align-items:center; gap:4px;"><span style="width:10px; height:10px; background:${f.cssColor}; border-radius:50%; display:inline-block;"></span>${f.name}</span>`;
+        }).join('');
+    }
+
+    const hist = G.turnHistory || [];
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // Tmavé pozadí
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, w, h);
+
+    if (hist.length < 2) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '12px Outfit, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Nedostatek odehraných kol pro zobrazení vývoje impérií', w / 2, h / 2);
+        return;
+    }
+
+    // Mřížka
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 1;
+    for (let y = 25; y < h - 25; y += 30) {
+        ctx.beginPath();
+        ctx.moveTo(35, y);
+        ctx.lineTo(w - 15, y);
+        ctx.stroke();
+    }
+
+    // Zjištění max bodů (města * 5 + příjem)
+    let maxVal = 15;
+    hist.forEach(step => {
+        Object.keys(step.data).forEach(fKey => {
+            const d = step.data[fKey];
+            const v = (d.cities * 5) + d.income;
+            if (v > maxVal) maxVal = v;
+        });
+    });
+
+    const padLeft = 35;
+    const padRight = 20;
+    const padBottom = 25;
+    const padTop = 15;
+    const graphW = w - padLeft - padRight;
+    const graphH = h - padTop - padBottom;
+
+    Object.keys(G.factions).forEach(fKey => {
+        const fac = G.factions[fKey];
+        ctx.strokeStyle = fac.cssColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+
+        hist.forEach((step, idx) => {
+            const x = padLeft + (idx / (hist.length - 1)) * graphW;
+            const d = step.data[fKey] || { cities: 1, income: 3 };
+            const v = (d.cities * 5) + d.income;
+            const y = padTop + graphH - (v / maxVal) * graphH;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+    });
+
+    // Popisky
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '10px Outfit, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Tah 1', padLeft, h - 8);
+    ctx.textAlign = 'right';
+    ctx.fillText(`Tah ${hist[hist.length - 1].turn}`, w - padRight, h - 8);
+    ctx.textAlign = 'left';
+    ctx.fillText(`Apex: ${maxVal}`, 6, padTop + 5);
 }
 
 function showToast(msg) {
@@ -3612,8 +4041,9 @@ window.selectMapSize = function(size) {
     if (size === 'standard') G.gridSize = 18;
     else if (size === 'continents') G.gridSize = 24;
     else if (size === 'huge') G.gridSize = 28;
+    else if (size === 'gigantic') G.gridSize = 36;
 
-    ['standard', 'continents', 'huge'].forEach(s => {
+    ['standard', 'continents', 'huge', 'gigantic'].forEach(s => {
         const btn = document.getElementById(`btn-map-${s}`);
         if (btn) btn.classList.toggle('active', s === size);
     });
@@ -3699,6 +4129,7 @@ window.confirmStartGame = function() {
 
     // Spusť energický Age of War soundtrack
     SFX.startAmbient();
+    if (scene) recordTurnSnapshot(scene);
     updateHUD();
     renderMinimap();
 };
