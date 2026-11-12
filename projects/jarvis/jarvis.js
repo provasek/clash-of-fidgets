@@ -996,7 +996,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (q.includes("more alcohol") || q.includes("více alkoholu") || q.includes("need a drink")) {
             return {
                 reply: "Objednávám dvojitou skotskou a aktivuji protokol 'Páteční večer', pane. Vaše játra nicméně vznesla formální námitku.",
-                image_url: "assets/more_alcohol.svg"
+                image_url: "assets/more_alcohol.png"
             };
         }
         if (q.includes("end it all") || q.includes("self destruct") || q.includes("sebedestrukc")) {
