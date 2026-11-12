@@ -1168,10 +1168,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 apiStatusBadge.textContent = "API: AKTIVNÍ";
                 btnConfigOpen.classList.remove("highlight");
                 btnConfigOpen.classList.add("api-connected");
+                if (inputApiKey) inputApiKey.placeholder = "✓ Uloženo na serveru (ponechte prázdné)";
             } else {
                 apiStatusBadge.textContent = "API: NASTAVIT";
                 btnConfigOpen.classList.add("highlight");
                 btnConfigOpen.classList.remove("api-connected");
+            }
+            if (cfg.has_hue && inputHueUser) {
+                inputHueUser.placeholder = "✓ Uloženo na serveru (ponechte prázdné)";
             }
             if (cfg.city) inputCity.value = cfg.city;
             if (cfg.latitude) inputLat.value = cfg.latitude;
