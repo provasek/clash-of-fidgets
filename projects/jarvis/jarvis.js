@@ -1164,7 +1164,12 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    let partyResetTimeout = null;
     function executeProtocol(proto) {
+        if (partyResetTimeout) {
+            clearTimeout(partyResetTimeout);
+            partyResetTimeout = null;
+        }
         if (proto === "morning-briefing") {
             playBootSound();
             state.coreTargetIntensity = 2.2;
@@ -1209,12 +1214,13 @@ document.addEventListener("DOMContentLoaded", () => {
             threatLevelEl.style.color = "#ffbe0b";
             state.coreTargetIntensity = 3.0;
             handleUserMessage("house party");
-            setTimeout(() => {
+            partyResetTimeout = setTimeout(() => {
                 state.threatLevel = "NOMINAL";
                 threatLevelEl.textContent = "SECURITY: NOMINAL";
                 threatLevelEl.style.color = "#00f3ff";
                 state.coreTargetIntensity = 1.0;
-            }, 10000);
+                partyResetTimeout = null;
+            }, 120000);
         } else if (proto === "clean-slate") {
             playTone(400, 'triangle', 0.4, 0.15);
             state.threatLevel = "NOMINAL";
