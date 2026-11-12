@@ -16,10 +16,19 @@
 </head>
 <body>
 
+    <!-- Interactive Particle Background Canvas -->
+    <canvas id="particle-canvas"></canvas>
+
     <!-- Ambient background glow effects -->
     <div class="ambient-glow glow-1"></div>
     <div class="ambient-glow glow-2"></div>
     <div class="ambient-glow glow-3"></div>
+
+    <!-- Konami Code Retro Easter Egg Banner -->
+    <div id="konami-banner" class="konami-banner">
+        <span>👾 <strong>SECRET UNLOCKED!</strong> 80s Retro Arcade CRT režim aktivován.</span>
+        <button id="konami-close-btn" class="konami-btn-close">Vypnout</button>
+    </div>
 
     <!-- Sticky Navigation Bar -->
     <header class="navbar-wrap">
@@ -34,10 +43,15 @@
                 <li><a href="#projekty" class="nav-link">Projekty</a></li>
                 <li><a href="#kontakt" class="nav-link">Kontakt</a></li>
             </ul>
-            <a href="https://github.com/provasek" target="_blank" rel="noopener noreferrer" class="nav-cta">
-                <span>GitHub</span>
-                <span style="font-size: 0.75rem;">↗</span>
-            </a>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button class="nav-cta" onclick="document.getElementById('terminal-launcher').click()" title="Otevřít interaktivní konzoli (klávesa ~)">
+                    <span style="font-family: var(--font-mono);">&gt;_ CLI</span>
+                </button>
+                <a href="https://github.com/provasek" target="_blank" rel="noopener noreferrer" class="nav-cta">
+                    <span>GitHub</span>
+                    <span style="font-size: 0.75rem;">↗</span>
+                </a>
+            </div>
         </nav>
     </header>
 
@@ -196,12 +210,20 @@
                 <p class="section-subtitle">Interaktivní webové hry, AI rozhraní i semestrální práce.</p>
             </div>
 
-            <!-- Filter Controls -->
+            <!-- Filter Controls & Real-Time Search Bar -->
             <div class="controls-section">
                 <div class="section-label">
                     <span>Katalog projektů</span>
                     <span id="project-count" style="font-size: 0.85rem; font-weight: 500; color: var(--text-muted); margin-left: 6px;"></span>
                 </div>
+
+                <!-- Instant Search Input -->
+                <div class="search-input-wrap">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="project-search" class="search-input" placeholder="Hledat projekt nebo tag...">
+                    <button id="search-clear" class="search-clear-btn" title="Vymazat hledání">✕</button>
+                </div>
+
                 <div class="filter-tabs">
                     <button class="tab-btn active" data-filter="all">Všechny</button>
                     <button class="tab-btn" data-filter="games">🎮 Hry</button>
@@ -244,21 +266,27 @@
                     </div>
                 </a>
 
-                <a href="mailto:kontakt@provasek.xyz" class="contact-card">
+                <div class="contact-card">
                     <div class="contact-icon">✉️</div>
                     <div class="contact-info">
                         <h4>E-mail</h4>
                         <p>Napiš mi přímo na e-mail pro dotazy nebo spolupráci.</p>
-                        <div class="contact-handle">kontakt@provasek.xyz (doplň svůj)</div>
+                        <div class="contact-handle">kontakt@provasek.xyz</div>
+                        <button class="copy-pill-btn btn-copy" data-copy="kontakt@provasek.xyz" title="Zkopírovat e-mail">
+                            📋 Kopírovat e-mail
+                        </button>
                     </div>
-                </a>
+                </div>
 
                 <div class="contact-card">
                     <div class="contact-icon">💬</div>
                     <div class="contact-info">
-                        <h4>Discord & Komunita</h4>
-                        <p>Zastihneš mě na Discordu nebo dalších sítích.</p>
-                        <div class="contact-handle">@provasek (doplň svůj tag)</div>
+                        <h4>Discord</h4>
+                        <p>Zastihneš mě na Discordu nebo v herních komunitách.</p>
+                        <div class="contact-handle">@provasek</div>
+                        <button class="copy-pill-btn btn-copy" data-copy="@provasek" title="Zkopírovat Discord tag">
+                            📋 Kopírovat Discord
+                        </button>
                     </div>
                 </div>
             </div>
@@ -273,10 +301,49 @@
                 <a href="#kontakt" class="footer-link">Kontakt</a>
                 <a href="https://github.com/provasek/web" target="_blank" rel="noopener noreferrer" class="footer-link">Zdrojový kód webu</a>
             </div>
+            <p style="margin-bottom: 8px;">
+                💡 <em>Tip: Zkus stisknout klávesu <code style="font-family: var(--font-mono); color: var(--accent-indigo);">&grave;</code> pro otevření CLI terminálu, nebo naťukat retro kód <code style="font-family: var(--font-mono); color: var(--accent-indigo);">↑ ↑ ↓ ↓ ← → ← → B A</code>.</em>
+            </p>
             <p>© 2026 <strong>provasek</strong> • Osobní portfolio & rozcestník projektů na GitHub Pages</p>
         </footer>
 
     </div>
+
+    <!-- Floating Terminal Launcher Button -->
+    <button id="terminal-launcher" class="terminal-launcher-btn" title="Otevřít interaktivní vývojářský terminál">
+        <span class="dot"></span>
+        <span>&gt;_ Terminál</span>
+    </button>
+
+    <!-- Developer Terminal Modal Window -->
+    <div id="terminal-modal" class="terminal-modal-backdrop">
+        <div class="terminal-window">
+            <div class="terminal-header">
+                <div class="terminal-dots">
+                    <span class="terminal-dot dot-red" id="terminal-close-btn" title="Zavřít terminál"></span>
+                    <span class="terminal-dot dot-yellow"></span>
+                    <span class="terminal-dot dot-green"></span>
+                </div>
+                <div class="terminal-title">provasek@web: ~ (bash)</div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">ESC pro zavření</div>
+            </div>
+            <div class="terminal-body" id="terminal-body">
+                <div class="term-line term-success">
+                    Vítej v interaktivní vývojářské konzoli provasek.xyz! ⚡
+                </div>
+                <div class="term-line term-output">
+                    Napiš <span class="term-accent">help</span> pro seznam dostupných příkazů.
+                </div>
+            </div>
+            <div class="terminal-input-row">
+                <span class="term-prompt">provasek@web:~$</span>
+                <input type="text" id="terminal-input" class="terminal-input" placeholder="Zadej příkaz (např. projects, play jarvis, about)..." autocomplete="off" spellcheck="false">
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="copy-toast" class="copy-toast"></div>
 
     <!-- Data & Scripts -->
     <script src="projects.js"></script>
