@@ -328,6 +328,16 @@
                         <input type="password" id="input-hue-user" placeholder="Hue API klíč" autocomplete="off">
                     </div>
                 </div>
+                <div class="config-field">
+                    <label for="input-hue-group">HUE POKOJ / SKUPINA ID (0 = VŠE, JINAK NAPŘ. 1, 2...):</label>
+                    <div class="coords-group">
+                        <input type="text" id="input-hue-group" placeholder="0" autocomplete="off">
+                        <button type="button" id="btn-hue-rooms" class="hud-send-btn">NAČÍST POKOJE</button>
+                    </div>
+                    <span id="hue-rooms-hint" class="input-hint">
+                        Zadejte ID vašeho pokoje (místo 0 pro celý dům), nebo klikněte na NAČÍST POKOJE po uložení IP a klíče.
+                    </span>
+                </div>
                 <div id="config-status-msg" class="config-status-msg"></div>
             </div>
             <div class="modal-footer">

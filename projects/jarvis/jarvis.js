@@ -81,6 +81,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const inputEmailHost = document.getElementById("input-email-host");
     const inputHueIp = document.getElementById("input-hue-ip");
     const inputHueUser = document.getElementById("input-hue-user");
+    const inputHueGroup = document.getElementById("input-hue-group");
+    const btnHueRooms = document.getElementById("btn-hue-rooms");
+    const hueRoomsHint = document.getElementById("hue-rooms-hint");
     const btnSaveConfig = document.getElementById("btn-save-config");
     const configStatusMsg = document.getElementById("config-status-msg");
 
@@ -1076,6 +1079,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (cfg.email_address !== undefined && inputEmailAddress) inputEmailAddress.value = cfg.email_address;
             if (cfg.email_imap_host && inputEmailHost) inputEmailHost.value = cfg.email_imap_host;
             if (cfg.hue_bridge_ip !== undefined && inputHueIp) inputHueIp.value = cfg.hue_bridge_ip;
+            if (cfg.hue_group_id !== undefined && inputHueGroup) inputHueGroup.value = cfg.hue_group_id;
         } catch (e) {}
     }
 
@@ -1104,6 +1108,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const emailHost = inputEmailHost ? inputEmailHost.value.trim() : "";
         const hueIp = inputHueIp ? inputHueIp.value.trim() : "";
         const hueUser = inputHueUser ? inputHueUser.value.trim() : "";
+        const hueGroup = inputHueGroup ? inputHueGroup.value.trim() : "";
 
         const payload = {};
         if (apiKey) payload.gemini_api_key = apiKey;
@@ -1117,6 +1122,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (emailHost) payload.email_imap_host = emailHost;
         if (inputHueIp) payload.hue_bridge_ip = hueIp;
         if (hueUser) payload.hue_username = hueUser;
+        if (inputHueGroup && hueGroup) payload.hue_group_id = hueGroup;
 
         try {
             const res = await fetch("/api/config", {
@@ -1143,6 +1149,24 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     loadConfig();
+
+    if (btnHueRooms) {
+        btnHueRooms.addEventListener("click", async () => {
+            if (hueRoomsHint) hueRoomsHint.textContent = "Načítám pokoje z Hue Bridge...";
+            try {
+                const res = await fetch("/api/hue/rooms");
+                const data = await res.json();
+                if (data.rooms && data.rooms.length > 0) {
+                    const list = data.rooms.map(r => `${r.id}: ${r.name}`).join(" | ");
+                    if (hueRoomsHint) hueRoomsHint.textContent = `Nalezené pokoje: ${list}`;
+                } else {
+                    if (hueRoomsHint) hueRoomsHint.textContent = data.error || "Žádné pokoje nenalezeny. Nejprve uložte IP a API klíč.";
+                }
+            } catch (e) {
+                if (hueRoomsHint) hueRoomsHint.textContent = "Chyba při komunikaci s Hue Bridge.";
+            }
+        });
+    }
 
     // ==========================================
     // 9. MISSION LOGS / NOTES
