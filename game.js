@@ -261,17 +261,15 @@ function resetGame() {
 // --- MAIN LOOP (Passive Resource generation & Quest Timers) ---
 function startMainGameLoop() {
     setInterval(() => {
-        // Resource production per second
-        let goldProd = 0;
-        let elixirProd = 0;
-
+        // Resource accumulation inside mines/collectors (Clash of Clans style)
         G.village.buildings.forEach(b => {
-            if (b.type === 'goldmine') goldProd += b.level * 2;
-            if (b.type === 'elixircamp') elixirProd += b.level * 1.5;
+            if (b.type === 'goldmine') {
+                b.uncollectedGold = Math.min((b.level * 500), (b.uncollectedGold || 0) + (b.level * 2));
+            }
+            if (b.type === 'elixircamp') {
+                b.uncollectedElixir = Math.min((b.level * 400), (b.uncollectedElixir || 0) + (b.level * 1.5));
+            }
         });
-
-        G.res.gold = Math.floor(G.res.gold + goldProd);
-        G.res.elixir = Math.floor(G.res.elixir + elixirProd);
 
         // Quest timer progress
         if (G.tavern.activeQuest) {
@@ -284,6 +282,7 @@ function startMainGameLoop() {
         }
 
         updateResourceUI();
+        renderVillageGridBadges();
     }, 1000);
 
     // Auto save every 30s
@@ -299,6 +298,7 @@ function renderAll() {
     renderHeroTab();
     renderTavern();
     renderShop();
+    renderForge();
     renderDungeonTab();
 }
 
@@ -368,7 +368,16 @@ function renderVillageGrid() {
         card.className = `building-card ${b.type === 'empty' ? 'empty-plot' : ''} ${selectedBuildingId === b.id ? 'selected' : ''}`;
         
         let subText = b.type === 'empty' ? 'Klikni pro stavbu' : `Úroveň ${b.level}`;
+        
+        let badgeHtml = '';
+        if (b.type === 'goldmine' && (b.uncollectedGold || 0) >= 10) {
+            badgeHtml = `<div class="bldg-ready-badge" onclick="event.stopPropagation(); collectSingleBuilding(${b.id})">🪙 +${Math.floor(b.uncollectedGold)}</div>`;
+        } else if (b.type === 'elixircamp' && (b.uncollectedElixir || 0) >= 10) {
+            badgeHtml = `<div class="bldg-ready-badge" style="background:#ec4899" onclick="event.stopPropagation(); collectSingleBuilding(${b.id})">🧪 +${Math.floor(b.uncollectedElixir)}</div>`;
+        }
+
         card.innerHTML = `
+            ${badgeHtml}
             <div class="bldg-icon">${b.icon}</div>
             <div class="bldg-name">${b.name}</div>
             <div class="bldg-lvl">${subText}</div>
@@ -388,6 +397,66 @@ function renderVillageGrid() {
         if (current) renderBuildingInspector(current);
     }
 }
+
+function renderVillageGridBadges() {
+    // Rychlá aktualizace bublin nad doly bez překreslení celého gridu
+    G.village.buildings.forEach(b => {
+        if (b.type === 'goldmine' || b.type === 'elixircamp') {
+            const hasG = (b.uncollectedGold || 0) >= 15;
+            const hasE = (b.uncollectedElixir || 0) >= 15;
+            if (hasG || hasE) {
+                const badge = document.getElementById('badge-village');
+                if (badge) badge.style.display = 'inline-block';
+            }
+        }
+    });
+}
+
+window.collectSingleBuilding = function(id) {
+    const b = G.village.buildings.find(x => x.id === id);
+    if (!b) return;
+    if (b.type === 'goldmine' && b.uncollectedGold > 0) {
+        const amt = Math.floor(b.uncollectedGold);
+        G.res.gold += amt;
+        b.uncollectedGold = 0;
+        playSound('coin');
+        showToast(`🪙 Sebráno ${amt} zlata z dolu!`);
+    } else if (b.type === 'elixircamp' && b.uncollectedElixir > 0) {
+        const amt = Math.floor(b.uncollectedElixir);
+        G.res.elixir += amt;
+        b.uncollectedElixir = 0;
+        playSound('coin');
+        showToast(`🧪 Sebráno ${amt} elixíru ze sběrače!`);
+    }
+    renderVillageGrid();
+    updateResourceUI();
+};
+
+window.collectAllResources = function() {
+    let totG = 0;
+    let totE = 0;
+    G.village.buildings.forEach(b => {
+        if (b.type === 'goldmine' && (b.uncollectedGold || 0) > 0) {
+            totG += Math.floor(b.uncollectedGold);
+            b.uncollectedGold = 0;
+        }
+        if (b.type === 'elixircamp' && (b.uncollectedElixir || 0) > 0) {
+            totE += Math.floor(b.uncollectedElixir);
+            b.uncollectedElixir = 0;
+        }
+    });
+
+    if (totG > 0 || totE > 0) {
+        G.res.gold += totG;
+        G.res.elixir += totE;
+        playSound('coin');
+        showToast(`🌾 Sebráno ${totG} 🪙 a ${totE} 🧪 ze všech dolů a sběračů!`);
+    } else {
+        showToast('ℹ️ V dolech zatím není nasbírané žádné nové množství surovin.');
+    }
+    renderVillageGrid();
+    updateResourceUI();
+};
 
 function renderBuildingInspector(b) {
     const insp = document.getElementById('building-inspector');
@@ -997,7 +1066,100 @@ function addHeroXP(amount) {
     }
 }
 
-// --- SHOPS (Zbrojírna & Čaromarket) ---
+// --- FORGE SYSTEM (Královská Kovárna) ---
+let forgeSelectedInvIndex = null;
+
+function renderForge() {
+    const grid = document.getElementById('forge-inventory-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    G.hero.inventory.forEach((item, idx) => {
+        const slotEl = document.createElement('div');
+        slotEl.className = `inv-slot ${item.rarityCls} ${forgeSelectedInvIndex === idx ? 'selected' : ''}`;
+        slotEl.innerHTML = item.icon;
+        slotEl.addEventListener('click', () => {
+            forgeSelectedInvIndex = idx;
+            renderForge();
+            previewForgeSmelt(item);
+        });
+        grid.appendChild(slotEl);
+    });
+
+    // Button Craft
+    const btnCraft = document.getElementById('btn-craft-artifact');
+    if (btnCraft) {
+        btnCraft.onclick = craftEpicArtifact;
+    }
+}
+
+function previewForgeSmelt(item) {
+    const slot = document.getElementById('forge-smelt-slot');
+    const prev = document.getElementById('forge-smelt-preview');
+    slot.innerHTML = `
+        <div style="font-size:32px;">${item.icon}</div>
+        <div style="margin-left:12px; text-align:left;">
+            <strong style="color:${item.rarityColor};">${item.name}</strong>
+            <div style="font-size:11px; color:#9ca3af;">${item.rarityName} ${item.type}</div>
+        </div>
+        <button class="btn btn-danger btn-sm" style="margin-left:auto;" onclick="smeltItem(${forgeSelectedInvIndex})">🔥 Roztavit</button>
+    `;
+    prev.innerText = `Výnos z tavení: +${Math.floor(item.value * 1.5)} Zlata a šance na 1 Houbičku 🍄!`;
+}
+
+window.smeltItem = function(idx) {
+    const item = G.hero.inventory[idx];
+    if (!item) return;
+
+    const goldGained = Math.floor(item.value * 1.5);
+    G.res.gold += goldGained;
+    
+    let gotGem = false;
+    if (item.rarityCls === 'epic' || item.rarityCls === 'legendary' || Math.random() < 0.2) {
+        G.res.gems += 1;
+        gotGem = true;
+    }
+
+    G.hero.inventory.splice(idx, 1);
+    forgeSelectedInvIndex = null;
+
+    playSound('magic');
+    showToast(`🔥 Předmět ${item.name} roztaven! Získáno +${goldGained} 🪙 ${gotGem ? 'a +1 🍄!' : ''}`);
+
+    document.getElementById('forge-smelt-slot').innerHTML = `<span>Klikni na předmět v batohu níže pro roztavení</span>`;
+    document.getElementById('forge-smelt-preview').innerText = '';
+
+    renderForge();
+    renderHeroTab();
+    updateResourceUI();
+};
+
+function craftEpicArtifact() {
+    if (G.res.gold < 500 || G.res.elixir < 300) {
+        showToast('❌ Nedostatek surovin pro kování (potřebuješ 500 🪙 a 300 🧪)!');
+        return;
+    }
+    if (G.hero.inventory.length >= 16) {
+        showToast('⚠️ Batoh je plný, uvolni místo!');
+        return;
+    }
+
+    G.res.gold -= 500;
+    G.res.elixir -= 300;
+
+    // Craft guaranteed Epic or Legendary item scaled to hero level
+    const isLegendary = Math.random() < 0.25;
+    const craftedItem = generateRandomItem(null, G.hero.level + 1, isLegendary ? 3 : 2);
+    craftedItem.name = `Kovaný ${craftedItem.name}`;
+    G.hero.inventory.push(craftedItem);
+
+    playSound('fanfare');
+    showToast(`⚡ ÚSPĚCH! Ukován mistrovský artefakt: ${craftedItem.name}!`);
+
+    renderForge();
+    renderHeroTab();
+    updateResourceUI();
+}
 function generateShopItems() {
     G.shop.items = [];
     for (let i = 0; i < 6; i++) {
@@ -1721,10 +1883,7 @@ function setupEventListeners() {
     document.getElementById('btn-reset').addEventListener('click', resetGame);
 
     // Collect All Resources
-    document.getElementById('btn-collect-all').addEventListener('click', () => {
-        playSound('coin');
-        showToast('🌾 Všechny suroviny ze sběračů a dolů byly sebrány!');
-    });
+    document.getElementById('btn-collect-all').addEventListener('click', collectAllResources);
 
     // Quick Army Fill
     document.getElementById('btn-quick-army').addEventListener('click', () => {

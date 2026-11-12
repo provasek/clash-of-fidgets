@@ -108,6 +108,10 @@
                 <span class="nav-icon">🏪</span>
                 <span>Zbrojírna &amp; Čáry</span>
             </button>
+            <button class="nav-btn" data-tab="tab-forge">
+                <span class="nav-icon">⚒️</span>
+                <span>Královská Kovárna</span>
+            </button>
             <button class="nav-btn" data-tab="tab-dungeon">
                 <span class="nav-icon">💀</span>
                 <span>Podzemí &amp; Aréna</span>
@@ -343,7 +347,40 @@
                 </div>
             </section>
 
-            <!-- TAB 7: PODZEMÍ & ARÉNA (S&F COMBAT) -->
+            <!-- TAB: KOVÁRNA (NOVÝ SYSTÉM RECYKLACE A ENCHANTINGU) -->
+            <section id="tab-forge" class="tab-pane">
+                <div class="pane-header">
+                    <div>
+                        <h2>⚒️ Královská Kovárna &amp; Očarování</h2>
+                        <p>Zde se propojuje tvůj Hrad s Hrdinou: Tav nepotřebnou výbavu na Magickou rudu a ukovej si Legendární zbraně!</p>
+                    </div>
+                </div>
+
+                <div class="forge-layout">
+                    <div class="forge-card">
+                        <div class="forge-icon">🔥</div>
+                        <h3>Tavení &amp; Recyklace Výbavy</h3>
+                        <p>Vlož starý předmět z batohu do výhně. Získáš zlato a vzácnou <strong>Magickou Rudu 🔮</strong>.</p>
+                        <div class="forge-dropzone" id="forge-smelt-slot">
+                            <span>Klikni na předmět v batohu níže pro roztavení</span>
+                        </div>
+                        <div id="forge-smelt-preview" style="font-size:12px; margin-top:8px; color:#a5b4fc;"></div>
+                    </div>
+
+                    <div class="forge-card">
+                        <div class="forge-icon">✨</div>
+                        <h3>Kování Mistrovského Artefaktu</h3>
+                        <p>Ukovej pro své povolání zbraň nebo brnění s garantovanou epickou kvalitou.</p>
+                        <div class="craft-recipe">
+                            <div>Požadavek: <strong>500 🪙</strong> + <strong>300 🧪</strong></div>
+                            <button class="btn btn-purple btn-lg" style="margin-top:12px;" id="btn-craft-artifact">⚡ Ukovat Epický Artefakt</button>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin:24px 0 10px 0; font-size:15px; color:#c7d2fe;">🎒 Vyber předmět z batohu pro roztavení v peci:</h3>
+                <div class="inventory-grid" id="forge-inventory-grid"></div>
+            </section>
             <section id="tab-dungeon" class="tab-pane">
                 <div class="pane-header">
                     <div>
