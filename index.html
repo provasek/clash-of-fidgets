@@ -2,459 +2,107 @@
 <html lang="cs">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hrad & Hrdina: Clash of Fidgets</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Aetheria: Bastion of the Void</title>
+    <!-- Google Fonts for High-Fantasy Sci-Fi Hybrid Style -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <!-- Phaser 3.80.1 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 <body>
-    <!-- Top Resource & Hero Bar -->
-    <header class="top-bar">
-        <div class="brand">
-            <span class="brand-icon">🏰</span>
-            <div>
-                <h1>Hrad &amp; Hrdina</h1>
-                <span class="subtitle">Clash of Fidgets</span>
+    <div id="game-wrapper">
+        <!-- Floating HUD Overlays generated cleanly above the WebGL Canvas -->
+        <header id="game-hud">
+            <div class="hud-left">
+                <div class="bastion-crest" id="hud-crest">⚡</div>
+                <div class="bastion-identity">
+                    <div class="bastion-title" id="hud-commander-name">Aetherarch Valerius</div>
+                    <div class="bastion-rank">Stupeň Jádra: <span id="hud-core-rank">1</span> • Síla Bastionu: <span id="hud-power-score">140</span></div>
+                </div>
             </div>
-        </div>
 
-        <div class="resources-bar">
-            <div class="res-pill gold" title="Zlato - na stavby, atributy a nákupy">
-                <span class="res-icon">🪙</span>
-                <div class="res-info">
-                    <span class="res-label">Zlato</span>
-                    <span id="res-gold">500</span>
-                    <small id="res-gold-rate">+0/min</small>
+            <!-- Currency & Cosmic Energies Bar -->
+            <div class="hud-resources">
+                <div class="res-badge shards" title="Astrální Střepy (Základní hmota na stavbu a krystalizaci)">
+                    <span class="icon">💎</span>
+                    <div class="vals">
+                        <span class="val" id="res-shards">1,200</span>
+                        <span class="rate" id="rate-shards">+60/m</span>
+                    </div>
                 </div>
-            </div>
-            <div class="res-pill elixir" title="Elixír - na výcvik armády, kouzla a vylepšení">
-                <span class="res-icon">🧪</span>
-                <div class="res-info">
-                    <span class="res-label">Elixír</span>
-                    <span id="res-elixir">300</span>
-                    <small id="res-elixir-rate">+0/min</small>
+                <div class="res-badge aether" title="Tekutý Aether (Energie pro technologie, portály a rezonanci)">
+                    <span class="icon">🌀</span>
+                    <div class="vals">
+                        <span class="val" id="res-aether">850</span>
+                        <span class="rate" id="rate-aether">+45/m</span>
+                    </div>
                 </div>
-            </div>
-            <div class="res-pill gems" title="Houbičky / Krystaly - prémiová měna z výprav a bossů">
-                <span class="res-icon">🍄</span>
-                <div class="res-info">
-                    <span class="res-label">Houbičky</span>
-                    <span id="res-gems">25</span>
+                <div class="res-badge chronos" title="Chronos Kameny (Ohýbají časoprostor - instantní akce a přetížení)">
+                    <span class="icon">⏳</span>
+                    <div class="vals">
+                        <span class="val" id="res-chronos">15</span>
+                    </div>
                 </div>
-            </div>
-            <div class="res-pill trophies" title="Trofeje a věhlas království">
-                <span class="res-icon">🏆</span>
-                <div class="res-info">
-                    <span class="res-label">Trofeje</span>
-                    <span id="res-trophies">100</span>
-                </div>
-            </div>
-            <div class="res-pill army" title="Kapacita vycvičené armády pro nájezdy">
-                <span class="res-icon">⚔️</span>
-                <div class="res-info">
-                    <span class="res-label">Armáda</span>
-                    <span id="res-army">0 / 20</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="header-actions">
-            <button id="btn-sound" class="icon-btn" title="Zapnout/Vypnout zvuky">🔊</button>
-            <button id="btn-save" class="icon-btn" title="Uložit hru">💾</button>
-            <button id="btn-reset" class="icon-btn danger" title="Restartovat hru">🔄</button>
-        </div>
-    </header>
-
-    <!-- Main Layout -->
-    <div class="app-container">
-        <!-- Left Navigation Sidebar (Shakes & Fidget + Clash style) -->
-        <nav class="side-nav">
-            <div class="hero-mini-card" id="nav-hero-card">
-                <div class="hero-avatar" id="mini-avatar">🛡️</div>
-                <div class="hero-mini-info">
-                    <div class="hero-mini-name" id="mini-name">Rekrut Artuš</div>
-                    <div class="hero-mini-lvl">Úroveň <span id="mini-lvl">1</span> • <span id="mini-class">Válečník</span></div>
-                    <div class="xp-bar-wrap">
-                        <div class="xp-bar-fill" id="mini-xp-bar" style="width: 0%"></div>
-                        <span class="xp-bar-text" id="mini-xp-text">0 / 100 XP</span>
+                <div class="res-badge renown" title="Věhlas v Říši (Žebříčkový vliv)">
+                    <span class="icon">👑</span>
+                    <div class="vals">
+                        <span class="val" id="res-renown">250</span>
                     </div>
                 </div>
             </div>
 
-            <div class="nav-section-title">HRAD A IMPÉRIUM (CLASH)</div>
-            <button class="nav-btn active" data-tab="tab-village">
-                <span class="nav-icon">🏰</span>
-                <span>Moje Vesnice</span>
-                <span class="nav-badge" id="badge-village" style="display:none">!</span>
-            </button>
-            <button class="nav-btn" data-tab="tab-barracks">
-                <span class="nav-icon">⛺</span>
-                <span>Kasárna &amp; Kouzla</span>
-            </button>
-            <button class="nav-btn highlight-raid" data-tab="tab-raid">
-                <span class="nav-icon">🔥</span>
-                <span>Taktický Nájezd</span>
-            </button>
+            <div class="hud-actions">
+                <button class="hud-icon-btn" id="btn-toggle-audio" title="Audio">🔊</button>
+                <button class="hud-icon-btn" id="btn-fullscreen" title="Celá obrazovka">⛶</button>
+            </div>
+        </header>
 
-            <div class="nav-section-title">DOBRODRUŽSTVÍ (S&amp;F RPG)</div>
-            <button class="nav-btn" data-tab="tab-hero">
-                <span class="nav-icon">🦸</span>
-                <span>Hrdina &amp; Výbava</span>
+        <!-- The WebGL Canvas Container -->
+        <div id="phaser-mount"></div>
+
+        <!-- Dynamic Game Bottom Control Dock (Contextual) -->
+        <nav id="bottom-dock">
+            <button class="dock-btn active" data-scene="CitadelScene">
+                <span class="icon">🏛️</span>
+                <span class="label">Citadela</span>
             </button>
-            <button class="nav-btn" data-tab="tab-tavern">
-                <span class="nav-icon">🍺</span>
-                <span>Hospoda (Výpravy)</span>
+            <button class="dock-btn" data-scene="CommanderScene">
+                <span class="icon">🧬</span>
+                <span class="label">Komandér &amp; Moduly</span>
             </button>
-            <button class="nav-btn" data-tab="tab-shop">
-                <span class="nav-icon">🏪</span>
-                <span>Zbrojírna &amp; Čáry</span>
+            <button class="dock-btn pulse-glow" data-scene="NexusScene">
+                <span class="icon">🌌</span>
+                <span class="label">Trhliny Prázdnoty</span>
             </button>
-            <button class="nav-btn" data-tab="tab-forge">
-                <span class="nav-icon">⚒️</span>
-                <span>Královská Kovárna</span>
+            <button class="dock-btn" data-scene="SanctumScene">
+                <span class="icon">🧪</span>
+                <span class="label">Syntetizátor</span>
             </button>
-            <button class="nav-btn" data-tab="tab-dungeon">
-                <span class="nav-icon">💀</span>
-                <span>Podzemí &amp; Aréna</span>
+            <button class="dock-btn highlight-danger" data-scene="BreachScene">
+                <span class="icon">⚔️</span>
+                <span class="label">Průlom (Invaze)</span>
             </button>
         </nav>
 
-        <!-- Center Content Area -->
-        <main class="main-content">
-
-            <!-- TAB 1: MOJE VESNICE (CLASH OF CLANS BASE BUILDER) -->
-            <section id="tab-village" class="tab-pane active">
-                <div class="pane-header">
-                    <div>
-                        <h2>🏰 Královská Vesnice (Úroveň Radnice <span id="th-level-display">1</span>)</h2>
-                        <p>Stavěj a vylepšuj budovy, sklízej suroviny a posiluj obranu i ekonomiku svého hradu.</p>
-                    </div>
-                    <div class="pane-actions">
-                        <button class="btn btn-gold" id="btn-collect-all">🌾 Sebrat všechny suroviny</button>
-                    </div>
-                </div>
-
-                <div class="village-layout">
-                    <div class="village-grid" id="village-grid">
-                        <!-- Dynamically rendered isometric/card grid of buildings -->
-                    </div>
-
-                    <aside class="building-inspector" id="building-inspector">
-                        <div class="inspector-empty">
-                            <span class="big-emoji">🔨</span>
-                            <h3>Vyber budovu ve vesnici</h3>
-                            <p>Klikni na libovolnou budovu nebo stavební parcelu vlevo pro zobrazení detailů, produkce a vylepšení.</p>
-                        </div>
-                    </aside>
-                </div>
-            </section>
-
-            <!-- TAB 2: KASÁRNA & KOUZLA -->
-            <section id="tab-barracks" class="tab-pane">
-                <div class="pane-header">
-                    <div>
-                        <h2>⛺ Kasárna &amp; Alchymistická Věž</h2>
-                        <p>Vycvič jednotky a připrav bojová kouzla, která nasadíš společně se svým Hrdinou v bitvě!</p>
-                    </div>
-                    <div class="army-summary-box">
-                        <span>Kapacita táborů: <strong id="barracks-cap">0 / 20</strong></span>
-                        <button class="btn btn-secondary btn-sm" id="btn-quick-army">⚡ Rychle doplnit armádu</button>
-                    </div>
-                </div>
-
-                <div class="barracks-grid" id="barracks-grid">
-                    <!-- Rendered by JS -->
-                </div>
-
-                <h3 class="section-subhead">✨ Bojová Kouzla (do Taktického Nájezdu)</h3>
-                <div class="spells-grid" id="spells-grid">
-                    <!-- Rendered by JS -->
-                </div>
-            </section>
-
-            <!-- TAB 3: TAKTICKÝ NÁJEZD (REAL-TIME CANVAS BATTLE) -->
-            <section id="tab-raid" class="tab-pane">
-                <div class="pane-header">
-                    <div>
-                        <h2>🔥 Taktický Nájezd na Nepřátelskou Pevnost</h2>
-                        <p>Kliknutím na bojiště v zelené zóně vysadíš jednotky a Hrdinu. Kouzla můžeš seslat kamkoliv!</p>
-                    </div>
-                    <div class="raid-controls">
-                        <button class="btn btn-secondary" id="btn-next-target">🔍 Hledat jiný cíl (50 🪙)</button>
-                        <button class="btn btn-danger" id="btn-retreat" style="display:none">🏳️ Ukončit bitvu</button>
-                    </div>
-                </div>
-
-                <div class="raid-arena-wrap">
-                    <div class="raid-hud-top">
-                        <div class="enemy-info">
-                            <span id="raid-enemy-name">Pevnost Černého Barona</span>
-                            <span class="badge-diff" id="raid-enemy-power">Obtížnost: Střední</span>
-                        </div>
-                        <div class="raid-progress">
-                            <span>Zničení: <strong id="raid-destruction">0%</strong></span>
-                            <span class="raid-stars" id="raid-stars">☆☆☆</span>
-                            <span>Čas: <strong id="raid-timer">01:30</strong></span>
-                        </div>
-                        <div class="raid-loot-preview">
-                            Kořist: <span id="raid-loot-gold">0</span> 🪙 | <span id="raid-loot-elixir">0</span> 🧪 | <span id="raid-loot-trophies">+15</span> 🏆
-                        </div>
-                    </div>
-
-                    <div class="canvas-wrapper">
-                        <canvas id="raid-canvas" width="860" height="440"></canvas>
-                    </div>
-
-                    <!-- Deployment Dock -->
-                    <div class="deploy-dock" id="deploy-dock">
-                        <!-- Rendered by JS: Hero button + troop buttons + spell buttons -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- TAB 4: HRDINA & VÝBAVA (SHAKES & FIDGET RPG) -->
-            <section id="tab-hero" class="tab-pane">
-                <div class="pane-header">
-                    <div>
-                        <h2>🦸 Karta Hrdiny &amp; Inventář</h2>
-                        <p>Vylepšuj atributy za zlato, nasazuj epické předměty a vyber si bojové povolání.</p>
-                    </div>
-                    <div class="class-switcher">
-                        <label>Povolání:</label>
-                        <select id="select-hero-class">
-                            <option value="warrior">🛡️ Válečník (Hlavní: Síla, Vysoké HP)</option>
-                            <option value="ranger">🏹 Hraničář (Hlavní: Obratnost, Úhyb &amp; Střelba)</option>
-                            <option value="mage">🔮 Čaroděj (Hlavní: Inteligence, Obrovské poškození)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="hero-rpg-layout">
-                    <!-- Left: Character Paperdoll & Stats -->
-                    <div class="hero-paperdoll-panel">
-                        <div class="paperdoll-grid">
-                            <div class="equip-slot" data-slot="helmet" title="Helma"></div>
-                            <div class="hero-portrait-box">
-                                <div class="big-portrait" id="hero-big-portrait">🛡️</div>
-                                <input type="text" id="hero-name-input" class="hero-name-input" value="Rekrut Artuš" maxlength="20">
-                                <div class="hero-power-badge">Bojová síla: <strong id="hero-power-val">120</strong></div>
-                            </div>
-                            <div class="equip-slot" data-slot="amulet" title="Amulet"></div>
-
-                            <div class="equip-slot" data-slot="weapon" title="Zbraň"></div>
-                            <div class="equip-slot" data-slot="armor" title="Brnění"></div>
-                            <div class="equip-slot" data-slot="offhand" title="Štít / Grimoár"></div>
-
-                            <div></div>
-                            <div class="equip-slot" data-slot="boots" title="Boty"></div>
-                            <div></div>
-                        </div>
-
-                        <!-- Attributes Table (S&F Style) -->
-                        <div class="stats-box">
-                            <h3>Základní Atributy</h3>
-                            <div class="stat-row">
-                                <div class="stat-name">💪 Síla <small id="stat-str-desc">(Útok zblízka)</small></div>
-                                <div class="stat-val" id="stat-str">10</div>
-                                <button class="btn-plus" data-stat="str">+ <span id="cost-str">25</span> 🪙</button>
-                            </div>
-                            <div class="stat-row">
-                                <div class="stat-name">🏹 Obratnost <small id="stat-dex-desc">(Obrana / Střelba)</small></div>
-                                <div class="stat-val" id="stat-dex">10</div>
-                                <button class="btn-plus" data-stat="dex">+ <span id="cost-dex">25</span> 🪙</button>
-                            </div>
-                            <div class="stat-row">
-                                <div class="stat-name">🧠 Inteligence <small id="stat-int-desc">(Magie / Odolnost)</small></div>
-                                <div class="stat-val" id="stat-int">10</div>
-                                <button class="btn-plus" data-stat="int">+ <span id="cost-int">25</span> 🪙</button>
-                            </div>
-                            <div class="stat-row">
-                                <div class="stat-name">❤️ Výdrž <small id="stat-con-desc">(Životy: 250 HP)</small></div>
-                                <div class="stat-val" id="stat-con">10</div>
-                                <button class="btn-plus" data-stat="con">+ <span id="cost-con">25</span> 🪙</button>
-                            </div>
-                            <div class="stat-row">
-                                <div class="stat-name">🍀 Štěstí <small id="stat-lck-desc">(Kritický zásah: 10%)</small></div>
-                                <div class="stat-val" id="stat-lck">10</div>
-                                <button class="btn-plus" data-stat="lck">+ <span id="cost-lck">25</span> 🪙</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right: Backpack & Item Details -->
-                    <div class="hero-inventory-panel">
-                        <div class="inv-header">
-                            <h3>🎒 Batoh Hrdiny (<span id="inv-count">0</span>/16)</h3>
-                            <span class="hint">Klikni na předmět pro nasazení nebo prodej</span>
-                        </div>
-                        <div class="inventory-grid" id="inventory-grid">
-                            <!-- 16 slots rendered by JS -->
-                        </div>
-
-                        <div class="item-inspector" id="item-inspector">
-                            <p class="muted">Vyber předmět z batohu nebo z výbavy pro porovnání a akce.</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- TAB 5: HOSPODA U DĚRAVÉHO KORBELE (S&F QUESTS) -->
-            <section id="tab-tavern" class="tab-pane">
-                <div class="pane-header">
-                    <div>
-                        <h2>🍺 Hospoda „U Děravého Korbele“</h2>
-                        <p>Přijímej úkoly od tajemného zadavatele, získávej zkušenosti, zlato a epické předměty!</p>
-                    </div>
-                    <div class="stamina-box">
-                        <span>🍻 Touha po dobrodružství: <strong id="tavern-stamina">100 / 100</strong></span>
-                        <button class="btn btn-gold btn-sm" id="btn-drink-beer">🍺 Dát si pivo (+20 🍻 za 1 🍄)</button>
-                    </div>
-                </div>
-
-                <!-- Active Quest View vs Quest Selection -->
-                <div id="tavern-selection-view" class="tavern-cards-wrap">
-                    <!-- 3 Quest parchments generated by JS -->
-                </div>
-
-                <div id="tavern-active-view" class="tavern-active-quest" style="display:none">
-                    <div class="quest-scene">
-                        <div class="quest-emoji" id="active-quest-icon">🐉</div>
-                        <h3 id="active-quest-title">Výprava za Ztraceným Grálem</h3>
-                        <p id="active-quest-story">Kráčíš temným hvozdem...</p>
-                        <div class="quest-progress-bar">
-                            <div class="quest-progress-fill" id="active-quest-fill" style="width: 0%"></div>
-                        </div>
-                        <div class="quest-time-left" id="active-quest-timer">Zbývá: 15s</div>
-                        <button class="btn btn-purple" id="btn-skip-quest">⚡ Přeskočit čekání (1 🍄)</button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- TAB 6: ZBROJÍRNA & ČÁRY (SHOPS) -->
-            <section id="tab-shop" class="tab-pane">
-                <div class="pane-header">
-                    <div>
-                        <h2>🏪 Královská Zbrojírna &amp; Čaromarket</h2>
-                        <p>Nakupuj novou výbavu pro svého Hrdinu. Kvalita zboží roste s úrovní Hrdiny a Kovárny!</p>
-                    </div>
-                    <div class="pane-actions" style="display:flex; gap:8px;">
-                        <button class="btn btn-gold" id="btn-refresh-shop-gold">🎲 Obnovit za 150 🪙</button>
-                        <button class="btn btn-purple" id="btn-refresh-shop-gem">🍄 Obnovit za 1 🍄</button>
-                    </div>
-                </div>
-
-                <div class="shop-grid" id="shop-grid">
-                    <!-- 6 Shop Items rendered by JS -->
-                </div>
-            </section>
-
-            <!-- TAB: KOVÁRNA (NOVÝ SYSTÉM RECYKLACE A ENCHANTINGU) -->
-            <section id="tab-forge" class="tab-pane">
-                <div class="pane-header">
-                    <div>
-                        <h2>⚒️ Královská Kovárna &amp; Očarování</h2>
-                        <p>Zde se propojuje tvůj Hrad s Hrdinou: Tav nepotřebnou výbavu na Magickou rudu a ukovej si Legendární zbraně!</p>
-                    </div>
-                </div>
-
-                <div class="forge-layout">
-                    <div class="forge-card">
-                        <div class="forge-icon">🔥</div>
-                        <h3>Tavení &amp; Recyklace Výbavy</h3>
-                        <p>Vlož starý předmět z batohu do výhně. Získáš zlato a vzácnou <strong>Magickou Rudu 🔮</strong>.</p>
-                        <div class="forge-dropzone" id="forge-smelt-slot">
-                            <span>Klikni na předmět v batohu níže pro roztavení</span>
-                        </div>
-                        <div id="forge-smelt-preview" style="font-size:12px; margin-top:8px; color:#a5b4fc;"></div>
-                    </div>
-
-                    <div class="forge-card">
-                        <div class="forge-icon">✨</div>
-                        <h3>Kování Mistrovského Artefaktu</h3>
-                        <p>Ukovej pro své povolání zbraň nebo brnění s garantovanou epickou kvalitou.</p>
-                        <div class="craft-recipe">
-                            <div>Požadavek: <strong>500 🪙</strong> + <strong>300 🧪</strong></div>
-                            <button class="btn btn-purple btn-lg" style="margin-top:12px;" id="btn-craft-artifact">⚡ Ukovat Epický Artefakt</button>
-                        </div>
-                    </div>
-                </div>
-
-                <h3 style="margin:24px 0 10px 0; font-size:15px; color:#c7d2fe;">🎒 Vyber předmět z batohu pro roztavení v peci:</h3>
-                <div class="inventory-grid" id="forge-inventory-grid"></div>
-            </section>
-            <section id="tab-dungeon" class="tab-pane">
-                <div class="pane-header">
-                    <div>
-                        <h2>💀 Temné Podzemí &amp; Gladiátorská Aréna</h2>
-                        <p>Vyzvi 10 legendárních bossů Podzemí nebo bojuj s šampiony v Aréně o trofeje a garantované Epické předměty!</p>
-                    </div>
-                </div>
-
-                <div class="dungeon-arena-grid">
-                    <div class="dungeon-card">
-                        <div class="da-badge">PATRO <span id="dungeon-floor">1</span> / 12</div>
-                        <div class="da-icon" id="dungeon-boss-icon">👹</div>
-                        <h3 id="dungeon-boss-name">Skřetí Náčelník Grimgor</h3>
-                        <p id="dungeon-boss-desc">Vládce zatopených katakomb. Garantovaná šance na vzácný či epický lup!</p>
-                        <div class="da-stats" id="dungeon-boss-stats">HP: 450 • Síla: 18</div>
-                        <button class="btn btn-danger btn-lg" id="btn-fight-dungeon">⚔️ Vstoupit do Podzemí</button>
-                    </div>
-
-                    <div class="dungeon-card arena-card">
-                        <div class="da-badge">ARÉNA ŠAMPIONŮ</div>
-                        <div class="da-icon" id="arena-rival-icon">🤺</div>
-                        <h3 id="arena-rival-name">Sir Lancelot z Pohraničí</h3>
-                        <p id="arena-rival-desc">Poraz rivala v aréně a získej zlato, zkušenosti a Trofeje do žebříčku!</p>
-                        <div class="da-stats" id="arena-rival-stats">HP: 320 • Síla: 14</div>
-                        <button class="btn btn-gold btn-lg" id="btn-fight-arena">🏆 Vyzvat na Souboj</button>
-                    </div>
-                </div>
-            </section>
-
-        </main>
-    </div>
-
-    <!-- RPG TURN-BASED COMBAT MODAL (Shakes & Fidget style animated duel) -->
-    <div class="modal-backdrop" id="combat-modal" style="display:none">
-        <div class="combat-modal-box">
-            <h2 id="combat-title">⚔️ Souboj začíná!</h2>
-            <div class="combat-stage">
-                <!-- Hero Fighter -->
-                <div class="fighter-card" id="fighter-hero">
-                    <div class="fighter-avatar" id="combat-hero-avatar">🛡️</div>
-                    <h4 id="combat-hero-name">Hrdina</h4>
-                    <div class="hp-bar-wrap">
-                        <div class="hp-bar-fill hero-hp" id="combat-hero-hp-bar" style="width:100%"></div>
-                        <span class="hp-text" id="combat-hero-hp-text">250 / 250</span>
-                    </div>
-                    <div class="floating-dmg" id="dmg-hero"></div>
-                </div>
-
-                <div class="vs-badge">VS</div>
-
-                <!-- Enemy Fighter -->
-                <div class="fighter-card" id="fighter-enemy">
-                    <div class="fighter-avatar" id="combat-enemy-avatar">👹</div>
-                    <h4 id="combat-enemy-name">Nepřítel</h4>
-                    <div class="hp-bar-wrap">
-                        <div class="hp-bar-fill enemy-hp" id="combat-enemy-hp-bar" style="width:100%"></div>
-                        <span class="hp-text" id="combat-enemy-hp-text">250 / 250</span>
-                    </div>
-                    <div class="floating-dmg" id="dmg-enemy"></div>
-                </div>
+        <!-- Floating Context Modal / Inspector (Build, Inspect, Dialogue) -->
+        <div id="inspector-overlay" class="overlay-panel hidden">
+            <div class="overlay-header">
+                <h3 id="inspector-title">Stavební Matice</h3>
+                <button class="close-btn" id="btn-close-inspector">&times;</button>
             </div>
-
-            <div class="combat-log" id="combat-log"></div>
-
-            <div class="combat-actions">
-                <button class="btn btn-secondary" id="btn-combat-skip">⏩ Rychlý konec</button>
-                <button class="btn btn-gold" id="btn-combat-close" style="display:none">🎉 Sebrat odměnu a zavřít</button>
+            <div class="overlay-body" id="inspector-content">
+                <!-- Injected via JavaScript -->
             </div>
         </div>
+
+        <!-- Toast Notifications -->
+        <div id="toast-rack"></div>
     </div>
 
-    <!-- Toast Notifications -->
-    <div id="toast-container" class="toast-container"></div>
-
+    <!-- Main Game Script Modularly Built -->
     <script src="game.js"></script>
 </body>
 </html>
