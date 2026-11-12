@@ -84,6 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const inputHueIp = document.getElementById("input-hue-ip");
     const inputHueUser = document.getElementById("input-hue-user");
     const inputHueGroup = document.getElementById("input-hue-group");
+    const btnHuePair = document.getElementById("btn-hue-pair");
     const btnHueRooms = document.getElementById("btn-hue-rooms");
     const hueRoomsHint = document.getElementById("hue-rooms-hint");
     const btnWakeToggle = document.getElementById("btn-wake-toggle");
@@ -1217,6 +1218,25 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     loadConfig();
+
+    if (btnHuePair) {
+        btnHuePair.addEventListener("click", async () => {
+            if (hueRoomsHint) hueRoomsHint.textContent = "Hledám Hue Bridge a zkouším párování...";
+            try {
+                const res = await fetch("/api/hue/pair", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ip: inputHueIp ? inputHueIp.value.trim() : "" })
+                });
+                const data = await res.json();
+                if (data.ip && inputHueIp) inputHueIp.value = data.ip;
+                if (data.username && inputHueUser) inputHueUser.value = data.username;
+                if (hueRoomsHint) hueRoomsHint.textContent = data.message || "Hotovo.";
+            } catch (e) {
+                if (hueRoomsHint) hueRoomsHint.textContent = "Chyba při párování s Hue Bridge.";
+            }
+        });
+    }
 
     if (btnHueRooms) {
         btnHueRooms.addEventListener("click", async () => {

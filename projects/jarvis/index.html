@@ -328,7 +328,10 @@
                     </div>
                     <div class="config-field">
                         <label for="input-hue-user">HUE API USERNAME:</label>
-                        <input type="password" id="input-hue-user" placeholder="Hue API klíč" autocomplete="off">
+                        <div class="coords-group">
+                            <input type="password" id="input-hue-user" placeholder="Vygeneruje se párováním" autocomplete="off">
+                            <button type="button" id="btn-hue-pair" class="hud-send-btn">PÁROVAT BRIDGE</button>
+                        </div>
                     </div>
                 </div>
                 <div class="config-field">
