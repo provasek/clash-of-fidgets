@@ -114,17 +114,36 @@ class CivAudioEngine {
         this.ctx = null;
         this.musicStep = 0;
         this.musicInterval = null;
+        this.unlocked = false;
     }
     init() {
         if (!this.ctx) {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.ctx = new AudioContext();
             this.masterGain = this.ctx.createGain();
-            this.masterGain.gain.setValueAtTime(0.7, this.ctx.currentTime);
+            this.masterGain.gain.setValueAtTime(0.85, this.ctx.currentTime);
             this.masterGain.connect(this.ctx.destination);
         }
         if (this.ctx && this.ctx.state === 'suspended') {
-            this.ctx.resume();
+            this.ctx.resume().then(() => { this.unlocked = true; });
+        } else if (this.ctx && this.ctx.state === 'running') {
+            this.unlocked = true;
+        }
+    }
+    unlockAudio() {
+        this.init();
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().then(() => {
+                this.unlocked = true;
+                if (G.musicEnabled && !this.musicInterval) {
+                    this.startAmbient();
+                }
+            });
+        } else if (this.ctx && this.ctx.state === 'running') {
+            this.unlocked = true;
+            if (G.musicEnabled && !this.musicInterval) {
+                this.startAmbient();
+            }
         }
     }
     toggleAmbient() {
@@ -145,15 +164,10 @@ class CivAudioEngine {
     startAmbient() {
         if (!G.musicEnabled) return;
         this.init();
-        if (this.ctx.state === 'suspended') {
-            this.ctx.resume();
-        }
-
         if (this.musicInterval) clearInterval(this.musicInterval);
         this.musicStep = 0;
 
         // Válečný hymnus / Age of War - epická melodie v D-moll s driving arpeggiem a basovými údery bubnů
-        // D minor pentatonic + harmonic notes: D3=146.8, F3=174.6, G3=196, A3=220, C4=261.6, D4=293.7, E4=329.6, F4=349.2, A4=440
         const bassLine = [
             146.83, 146.83, 146.83, 146.83, // D3
             116.54, 116.54, 116.54, 116.54, // Bb2
@@ -169,11 +183,8 @@ class CivAudioEngine {
 
         const stepMs = 210; // ~142 BPM driving battle tempo
         this.musicInterval = setInterval(() => {
-            if (!G.musicEnabled || !this.ctx) return;
-            if (this.ctx.state === 'suspended') {
-                this.ctx.resume();
-            }
-            const t = this.ctx.currentTime;
+            if (!G.musicEnabled || !this.ctx || this.ctx.state !== 'running') return;
+            const t = this.ctx.currentTime + 0.03;
             const s = this.musicStep;
 
             // 1. DRIVING BASS & PERCUSSION (Age of War war drum / brass bass)
@@ -182,8 +193,8 @@ class CivAudioEngine {
             const bassGain = this.ctx.createGain();
             bassOsc.type = 'sawtooth';
             bassOsc.frequency.setValueAtTime(bassFreq, t);
-            bassGain.gain.setValueAtTime(0.09, t);
-            bassGain.exponentialRampToValueAtTime(0.002, t + 0.18);
+            bassGain.gain.setValueAtTime(0.18, t);
+            bassGain.exponentialRampToValueAtTime(0.003, t + 0.18);
             bassOsc.connect(bassGain);
             bassGain.connect(this.masterGain);
             bassOsc.start(t);
@@ -194,9 +205,9 @@ class CivAudioEngine {
                 const drumOsc = this.ctx.createOscillator();
                 const drumGain = this.ctx.createGain();
                 drumOsc.type = 'sine';
-                drumOsc.frequency.setValueAtTime(110, t);
+                drumOsc.frequency.setValueAtTime(120, t);
                 drumOsc.frequency.exponentialRampToValueAtTime(32, t + 0.16);
-                drumGain.gain.setValueAtTime(0.35, t);
+                drumGain.gain.setValueAtTime(0.5, t);
                 drumGain.exponentialRampToValueAtTime(0.002, t + 0.22);
                 drumOsc.connect(drumGain);
                 drumGain.connect(this.masterGain);
@@ -204,15 +215,15 @@ class CivAudioEngine {
                 drumOsc.stop(t + 0.23);
             }
 
-            // 2. LEAD HEROIC MELODY (Age of War synthy brass/flute lead)
+            // 2. LEAD HEROIC MELODY (Age of War synthy brass lead)
             const melFreq = leadMelody[s % leadMelody.length];
             if (melFreq > 0) {
                 const leadOsc = this.ctx.createOscillator();
                 const leadGain = this.ctx.createGain();
                 leadOsc.type = 'triangle';
                 leadOsc.frequency.setValueAtTime(melFreq, t);
-                leadGain.gain.setValueAtTime(0.14, t);
-                leadGain.exponentialRampToValueAtTime(0.003, t + 0.24);
+                leadGain.gain.setValueAtTime(0.28, t);
+                leadGain.exponentialRampToValueAtTime(0.005, t + 0.24);
                 leadOsc.connect(leadGain);
                 leadGain.connect(this.masterGain);
                 leadOsc.start(t);
@@ -1489,11 +1500,21 @@ function openUnitDock(unit) {
     `;
 
     if (unit.type === 'settler') {
-        actionsHtml += `
-            <button type="button" class="action-chip" style="background:#059669; border-color:#34d399; font-weight:800;" onpointerdown="event.stopPropagation()" onclick="foundNewCityWithSettler()">
-                <span>⛺ Založit Nové Město Zde</span>
-            </button>
-        `;
+        const scene = game.scene.getScene('PolytropiaScene');
+        const inCity = scene && scene.cities.some(c => c.gx === unit.gx && c.gy === unit.gy);
+        if (inCity) {
+            actionsHtml += `
+                <div class="action-chip disabled" style="background:#064e3b; border-color:#059669; opacity:0.8; cursor:default;" title="Osadník musí vyjít z města na volné pole">
+                    <span>⛺ Vyveď Osadníka z města pro založení nového</span>
+                </div>
+            `;
+        } else {
+            actionsHtml += `
+                <button type="button" class="action-chip" style="background:#059669; border-color:#34d399; font-weight:800;" onpointerdown="event.stopPropagation()" onclick="foundNewCityWithSettler(${unit.id})">
+                    <span>⛺ Založit Nové Město Zde</span>
+                </button>
+            `;
+        }
     }
 
     if (G.factions[G.activeFaction].techs.includes('roads') && !G.roads.some(r => r.gx === unit.gx && r.gy === unit.gy)) {
@@ -1615,11 +1636,9 @@ function openCityDock(city) {
             <button type="button" class="action-chip ${facStars < 5 ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="improveCityFarmland(${city.id})">
                 <span>🌾 Založit Farmu</span> <span class="cost">(5 ⭐)</span>
             </button>
-            ${techs.includes('mining') ? `
-                <button type="button" class="action-chip ${facStars < 6 ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="buildMountainMine(${city.id})">
-                    <span>⛏️ Postavit Důl</span> <span class="cost">(6 ⭐)</span>
-                </button>
-            ` : ''}
+            <button type="button" class="action-chip ${(!techs.includes('mining') || facStars < 6) ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="buildMountainMine(${city.id})">
+                <span>⛏️ Postavit Důl</span> <span class="cost">${techs.includes('mining') ? '(6 ⭐)' : '🔒 (vyžaduje Hornictví)'}</span>
+            </button>
             ${techs.includes('fortification') && !city.hasWalls ? `
                 <button type="button" class="action-chip ${facStars < 8 ? 'disabled' : ''}" onpointerdown="event.stopPropagation()" onclick="buildCityWalls(${city.id})">
                     <span>🏰 Postavit Hradby</span> <span class="cost">(8 ⭐)</span>
@@ -1773,40 +1792,24 @@ window.healSelectedUnit = function() {
     openUnitDock(u);
 };
 
-window.foundNewCityWithSettler = function() {
-    if (!G.selectedEntity || G.selectedEntity.type !== 'unit') return;
-    const u = G.selectedEntity.data;
-    if (u.type !== 'settler') return;
-
+window.foundNewCityWithSettler = function(unitId) {
     const scene = game.scene.getScene('PolytropiaScene');
+    let u = null;
+    if (unitId) {
+        u = scene.units.find(x => x.id === unitId);
+    }
+    if (!u && G.selectedEntity && G.selectedEntity.type === 'unit') {
+        u = G.selectedEntity.data;
+    }
+    if (!u || u.type !== 'settler') {
+        showToast('⚠️ Nejprve vyber Osadníka!');
+        return;
+    }
+
     let alreadyCity = scene.cities.some(c => c.gx === u.gx && c.gy === u.gy);
     if (alreadyCity) {
-        // Pokud Osadník stojí přímo ve městě, posuň ho automaticky o 1 políčko vedle a založ město tam!
-        const offsets = [
-            { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 },
-            { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 },
-            { dx: 2, dy: 0 }, { dx: 0, dy: 2 }, { dx: 2, dy: 2 }
-        ];
-        let movedOut = false;
-        for (let off of offsets) {
-            const tx = u.gx + off.dx;
-            const ty = u.gy + off.dy;
-            if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
-                const hasC = scene.cities.some(c => c.gx === tx && c.gy === ty);
-                const hasU = scene.units.some(unit => unit.gx === tx && unit.gy === ty);
-                if (!hasC && !hasU) {
-                    u.gx = tx;
-                    u.gy = ty;
-                    scene.map[tx][ty].biome = 'plain';
-                    movedOut = true;
-                    break;
-                }
-            }
-        }
-        if (!movedOut) {
-            showToast('⚠️ Zde již město existuje! Posuň Osadníka o kousek dál.');
-            return;
-        }
+        showToast('⚠️ V tomto městě již město stojí! Pohni Osadníkem o kousek dál do volné krajiny.');
+        return;
     }
 
     const tile = scene.map[u.gx][u.gy];
@@ -1838,7 +1841,7 @@ window.foundNewCityWithSettler = function() {
     triggerConfetti(scene, (newCity.gx - newCity.gy) * (scene.tileW / 2), (newCity.gx + newCity.gy) * (scene.tileH / 2));
     showToast(`🎉 Založeno nové město: ${newCity.name}!`);
 
-    scene.revealFogAround(newCity.gx, newCity.gy, 2);
+    scene.revealFogAround(newCity.gx, newCity.gy, 3);
     scene.renderMapTiles();
     scene.renderCities();
     scene.renderUnits();
@@ -1860,6 +1863,7 @@ window.improveCityFarmland = function(cityId) {
     if (!city) return;
 
     // Hledání přilehlé louky nebo lesa pro farmu (v dosahu 1 i 2)
+    // Přednostně volná odhalená pole bez jednotek a bez ruin/měst
     let targetPlain = null;
     const offsets = [
         { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 },
@@ -1867,20 +1871,38 @@ window.improveCityFarmland = function(cityId) {
         { dx: 2, dy: 0 }, { dx: 0, dy: 2 }, { dx: -2, dy: 0 }, { dx: 0, dy: -2 }
     ];
 
+    // 1. Priorita: Odhalené pole bez jednotek
     for (let off of offsets) {
         const tx = city.gx + off.dx;
         const ty = city.gy + off.dy;
         if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
             const tile = scene.map[tx][ty];
             const hasOtherCity = scene.cities.some(c => c.gx === tx && c.gy === ty);
-            if (!hasOtherCity && !tile.hasFarm && (tile.biome === 'plain' || tile.biome === 'forest')) {
+            const hasUnit = scene.units.some(u => u.gx === tx && u.gy === ty);
+            if (!hasOtherCity && !tile.hasFarm && !hasUnit && (tile.biome === 'plain' || tile.biome === 'forest')) {
                 targetPlain = tile;
                 break;
             }
         }
     }
 
-    // Fallback: Pokud jsou kolem města např. jen hory nebo voda, uprav jedno sousední políčko na louku
+    // 2. Druhá šance: Jakékoliv pole bez farmy a bez města
+    if (!targetPlain) {
+        for (let off of offsets) {
+            const tx = city.gx + off.dx;
+            const ty = city.gy + off.dy;
+            if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
+                const tile = scene.map[tx][ty];
+                const hasOtherCity = scene.cities.some(c => c.gx === tx && c.gy === ty);
+                if (!hasOtherCity && !tile.hasFarm && (tile.biome === 'plain' || tile.biome === 'forest')) {
+                    targetPlain = tile;
+                    break;
+                }
+            }
+        }
+    }
+
+    // 3. Fallback: Pokud je vše obsazeno, uprav jedno sousední políčko
     if (!targetPlain) {
         for (let off of offsets) {
             const tx = city.gx + off.dx;
@@ -1889,9 +1911,7 @@ window.improveCityFarmland = function(cityId) {
                 const tile = scene.map[tx][ty];
                 const hasOtherCity = scene.cities.some(c => c.gx === tx && c.gy === ty);
                 if (!hasOtherCity && !tile.hasFarm) {
-                    tile.biome = 'plain';
                     targetPlain = tile;
-                    scene.renderMapTiles();
                     break;
                 }
             }
@@ -1904,10 +1924,16 @@ window.improveCityFarmland = function(cityId) {
     }
 
     curFac.stars -= 5;
+    const wasForest = targetPlain.biome === 'forest';
     targetPlain.biome = 'plain';
     targetPlain.hasFarm = true;
     city.progress += 1;
     G.score += 35;
+
+    // Pokud byl na poli les nebo jiný biom, překresli dlaždice
+    if (wasForest) {
+        scene.renderMapTiles();
+    }
 
     const sx = (targetPlain.gx - targetPlain.gy) * (scene.tileW / 2);
     const sy = (targetPlain.gx + targetPlain.gy) * (scene.tileH / 2);
@@ -1923,7 +1949,7 @@ window.improveCityFarmland = function(cityId) {
         showToast(`🎉 MĚSTO ${city.name} POSTOUPILO NA ÚROVEŇ ${city.level}! +2 ⭐ příjem!`);
         triggerConfetti(scene, (city.gx - city.gy) * (scene.tileW / 2), (city.gx + city.gy) * (scene.tileH / 2));
     } else {
-        showToast(`🌾 Farma postavena! Pokrok města: ${city.progress}/${city.progressMax}`);
+        showToast(`🌾 Farma postavena na [${targetPlain.gx}, ${targetPlain.gy}]! Pokrok města: ${city.progress}/${city.progressMax}`);
     }
 
     scene.renderCities();
@@ -1933,6 +1959,10 @@ window.improveCityFarmland = function(cityId) {
 
 window.buildMountainMine = function(cityId) {
     const curFac = G.factions[G.activeFaction];
+    if (!curFac.techs.includes('mining')) {
+        showToast('🔒 Nejprve musíš vyzkoumat technologii Hornictví (Mining) ve Stromu Vědy!');
+        return;
+    }
     if (curFac.stars < 6) {
         showToast('❌ Nedostatek Hvězd na vybudování dolu (potřeba 6 ⭐)!');
         return;
@@ -1995,7 +2025,7 @@ window.buildMountainMine = function(cityId) {
     scene.featureLayer.add(mOverlay);
 
     SFX.play('level_up');
-    showToast(`⛏️ Zlatý důl zprovozněn! Příjem města zvýšen o +3 ⭐/tah.`);
+    showToast(`⛏️ Zlatý důl zprovozněn na [${targetMountain.gx}, ${targetMountain.gy}]! Příjem města: +3 ⭐/tah.`);
     updateHUD();
     openCityDock(city);
 };
@@ -2716,6 +2746,7 @@ const config = {
     width: window.innerWidth,
     height: window.innerHeight,
     transparent: true,
+    audio: { noAudio: true }, // Web Audio řeší přímo CivAudioEngine
     scene: [PolytropiaScene],
     scale: {
         mode: Phaser.Scale.RESIZE,
@@ -2726,6 +2757,15 @@ const config = {
 const game = new Phaser.Game(config);
 
 window.addEventListener('load', () => {
+    // Globální odemčení Web Audio API při prvním kliku/dotyku kdekoliv na obrazovce
+    const unlockHandler = () => {
+        SFX.unlockAudio();
+        window.removeEventListener('pointerdown', unlockHandler);
+        window.removeEventListener('keydown', unlockHandler);
+    };
+    window.addEventListener('pointerdown', unlockHandler);
+    window.addEventListener('keydown', unlockHandler);
+
     document.getElementById('btn-end-turn').addEventListener('click', executeEndTurn);
 
     document.getElementById('btn-open-tech').addEventListener('click', () => {
