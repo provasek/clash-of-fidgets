@@ -646,17 +646,32 @@ class PolytropiaScene extends Phaser.Scene {
         this.cities.forEach(c => {
             this.map[c.gx][c.gy].biome = 'plain';
             this.map[c.gx][c.gy].hasRuins = false;
-            // Garantuj průchodné pláně v bezprostředním okolí startovních měst
+            // Garantuj rozmanité a dostupné okolí pro každé město (volná louka pro farmu i hora pro důl)
             for (let dx = -1; dx <= 1; dx++) {
                 for (let dy = -1; dy <= 1; dy++) {
                     const nx = c.gx + dx;
                     const ny = c.gy + dy;
                     if (nx >= 0 && nx < G.gridSize && ny >= 0 && ny < G.gridSize) {
-                        if (this.map[nx][ny].biome === 'water' || this.map[nx][ny].biome === 'mountain') {
+                        if (this.map[nx][ny].biome === 'water') {
                             this.map[nx][ny].biome = 'plain';
                         }
                     }
                 }
+            }
+            // Zaruč alespoň 1 horu v dosahu pro důl a 2 louky pro farmy
+            const mOffsets = [{ dx: 1, dy: -1 }, { dx: -1, dy: 1 }];
+            for (let mo of mOffsets) {
+                const mx = c.gx + mo.dx;
+                const my = c.gy + mo.dy;
+                if (mx >= 0 && mx < G.gridSize && my >= 0 && my < G.gridSize) {
+                    this.map[mx][my].biome = 'mountain';
+                    break;
+                }
+            }
+            // A políčko pro farmu přímo u města
+            const fx = c.gx + 1; const fy = c.gy;
+            if (fx >= 0 && fx < G.gridSize && fy >= 0 && fy < G.gridSize) {
+                this.map[fx][fy].biome = 'plain';
             }
         });
 
@@ -1820,35 +1835,62 @@ window.foundNewCityWithSettler = function() {
 };
 
 window.improveCityFarmland = function(cityId) {
-    if (G.factions.solaria.stars < 5) {
-        showToast('❌ Nedostatek Hvězd na založení farmy!');
+    const curFac = G.factions[G.activeFaction];
+    if (curFac.stars < 5) {
+        showToast('❌ Nedostatek Hvězd na založení farmy (potřeba 5 ⭐)!');
         return;
     }
 
     const scene = game.scene.getScene('PolytropiaScene');
     const city = scene.cities.find(c => c.id === cityId);
+    if (!city) return;
 
-    // Hledání přilehlé louky pro farmu
+    // Hledání přilehlé louky nebo lesa pro farmu (v dosahu 1 i 2)
     let targetPlain = null;
-    for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-            const tx = city.gx + dx; const ty = city.gy + dy;
+    const offsets = [
+        { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 },
+        { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 },
+        { dx: 2, dy: 0 }, { dx: 0, dy: 2 }, { dx: -2, dy: 0 }, { dx: 0, dy: -2 }
+    ];
+
+    for (let off of offsets) {
+        const tx = city.gx + off.dx;
+        const ty = city.gy + off.dy;
+        if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
+            const tile = scene.map[tx][ty];
+            const hasOtherCity = scene.cities.some(c => c.gx === tx && c.gy === ty);
+            if (!hasOtherCity && !tile.hasFarm && (tile.biome === 'plain' || tile.biome === 'forest')) {
+                targetPlain = tile;
+                break;
+            }
+        }
+    }
+
+    // Fallback: Pokud jsou kolem města např. jen hory nebo voda, uprav jedno sousední políčko na louku
+    if (!targetPlain) {
+        for (let off of offsets) {
+            const tx = city.gx + off.dx;
+            const ty = city.gy + off.dy;
             if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
-                if (scene.map[tx][ty].biome === 'plain' && !scene.map[tx][ty].hasFarm && !(tx === city.gx && ty === city.gy)) {
-                    targetPlain = scene.map[tx][ty];
+                const tile = scene.map[tx][ty];
+                const hasOtherCity = scene.cities.some(c => c.gx === tx && c.gy === ty);
+                if (!hasOtherCity && !tile.hasFarm) {
+                    tile.biome = 'plain';
+                    targetPlain = tile;
+                    scene.renderMapTiles();
                     break;
                 }
             }
         }
-        if (targetPlain) break;
     }
 
     if (!targetPlain) {
-        showToast('⚠️ V okolí města není žádná volná louka pro založení farmy!');
+        showToast('⚠️ V okolí města není žádné vhodné místo pro farmu!');
         return;
     }
 
-    G.factions.solaria.stars -= 5;
+    curFac.stars -= 5;
+    targetPlain.biome = 'plain';
     targetPlain.hasFarm = true;
     city.progress += 1;
     G.score += 35;
@@ -1876,34 +1918,59 @@ window.improveCityFarmland = function(cityId) {
 };
 
 window.buildMountainMine = function(cityId) {
-    if (G.factions.solaria.stars < 6) {
-        showToast('❌ Nedostatek Hvězd na vybudování dolu!');
+    const curFac = G.factions[G.activeFaction];
+    if (curFac.stars < 6) {
+        showToast('❌ Nedostatek Hvězd na vybudování dolu (potřeba 6 ⭐)!');
         return;
     }
 
     const scene = game.scene.getScene('PolytropiaScene');
     const city = scene.cities.find(c => c.id === cityId);
+    if (!city) return;
 
     let targetMountain = null;
-    for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-            const tx = city.gx + dx; const ty = city.gy + dy;
+    const offsets = [
+        { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 },
+        { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 },
+        { dx: 2, dy: 0 }, { dx: 0, dy: 2 }, { dx: -2, dy: 0 }, { dx: 0, dy: -2 }
+    ];
+
+    for (let off of offsets) {
+        const tx = city.gx + off.dx;
+        const ty = city.gy + off.dy;
+        if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
+            const tile = scene.map[tx][ty];
+            if (tile.biome === 'mountain' && !tile.hasMine) {
+                targetMountain = tile;
+                break;
+            }
+        }
+    }
+
+    // Fallback: Pokud v okolí města hora chybí, vytvoř z jednoho vzdálenějšího pole horu s dolem!
+    if (!targetMountain) {
+        for (let off of offsets) {
+            const tx = city.gx + off.dx;
+            const ty = city.gy + off.dy;
             if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
-                if (scene.map[tx][ty].biome === 'mountain' && !scene.map[tx][ty].hasMine) {
-                    targetMountain = scene.map[tx][ty];
+                const tile = scene.map[tx][ty];
+                const hasOtherCity = scene.cities.some(c => c.gx === tx && c.gy === ty);
+                if (!hasOtherCity && !tile.hasFarm && !tile.hasMine) {
+                    tile.biome = 'mountain';
+                    targetMountain = tile;
+                    scene.renderMapTiles();
                     break;
                 }
             }
         }
-        if (targetMountain) break;
     }
 
     if (!targetMountain) {
-        showToast('⚠️ V těsném sousedství města není žádná volná hora pro důl!');
+        showToast('⚠️ V okolí města není žádné vhodné místo pro důl!');
         return;
     }
 
-    G.factions.solaria.stars -= 6;
+    curFac.stars -= 6;
     targetMountain.hasMine = true;
     city.income += 3;
     G.score += 45;
@@ -1920,16 +1987,17 @@ window.buildMountainMine = function(cityId) {
 };
 
 window.buildCityWalls = function(cityId) {
-    if (G.factions.solaria.stars < 8) {
-        showToast('❌ Nedostatek Hvězd na vybudování hradeb!');
+    const curFac = G.factions[G.activeFaction];
+    if (curFac.stars < 8) {
+        showToast('❌ Nedostatek Hvězd na vybudování hradeb (potřeba 8 ⭐)!');
         return;
     }
 
     const scene = game.scene.getScene('PolytropiaScene');
     const city = scene.cities.find(c => c.id === cityId);
-    if (city.hasWalls) return;
+    if (!city || city.hasWalls) return;
 
-    G.factions.solaria.stars -= 8;
+    curFac.stars -= 8;
     city.hasWalls = true;
     G.score += 50;
 
@@ -1942,13 +2010,15 @@ window.buildCityWalls = function(cityId) {
 };
 
 window.buildRoadAtCity = function(cityId) {
-    if (G.factions.solaria.stars < 2) {
-        showToast('❌ Nedostatek Hvězd na dláždění silnice!');
+    const curFac = G.factions[G.activeFaction];
+    if (curFac.stars < 2) {
+        showToast('❌ Nedostatek Hvězd na dláždění silnice (potřeba 2 ⭐)!');
         return;
     }
 
     const scene = game.scene.getScene('PolytropiaScene');
     const city = scene.cities.find(c => c.id === cityId);
+    if (!city) return;
 
     const alreadyRoad = G.roads.some(r => r.gx === city.gx && r.gy === city.gy);
     if (alreadyRoad) {
@@ -1956,7 +2026,7 @@ window.buildRoadAtCity = function(cityId) {
         return;
     }
 
-    G.factions.solaria.stars -= 2;
+    curFac.stars -= 2;
     G.roads.push({ gx: city.gx, gy: city.gy });
     scene.renderRoads();
     updateHUD();
@@ -1966,15 +2036,17 @@ window.buildRoadAtCity = function(cityId) {
 };
 
 window.startStargateProject = function(cityId) {
-    if (G.factions.solaria.stars < 40) {
+    const curFac = G.factions[G.activeFaction];
+    if (curFac.stars < 40) {
         showToast('❌ Na zahájení Hvězdné brány potřebuješ 40 ⭐ Hvězd!');
         return;
     }
 
     const scene = game.scene.getScene('PolytropiaScene');
     const city = scene.cities.find(c => c.id === cityId);
+    if (!city) return;
 
-    G.factions.solaria.stars -= 40;
+    curFac.stars -= 40;
     G.stargateProject = { cityId, turnsLeft: 3 };
     G.score += 250;
 
