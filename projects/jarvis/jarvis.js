@@ -95,6 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const hueRoomsHint = document.getElementById("hue-rooms-hint");
     const btnWakeToggle = document.getElementById("btn-wake-toggle");
     const inputBackendUrl = document.getElementById("input-backend-url");
+    const inputNewsTopics = document.getElementById("input-news-topics");
     const btnSaveConfig = document.getElementById("btn-save-config");
     const configStatusMsg = document.getElementById("config-status-msg");
 
@@ -999,7 +1000,10 @@ document.addEventListener("DOMContentLoaded", () => {
             };
         }
         if (q.includes("end it all") || q.includes("self destruct") || q.includes("sebedestrukc")) {
-            return "Zahajuji sekvenci sebedestrukce za 3... 2... 1... Žertuji, pane. Doporučuji spíše House Party Protocol.";
+            return {
+                reply: "Zahajuji sekvenci sebedestrukce za 3... 2... 1... Žertuji, pane. Doporučuji spíše House Party Protocol.",
+                image_url: "assets/end_it_all.gif"
+            };
         }
         if (q.includes("clip that")) {
             return "Uloženo do mentálního archivu Stark Industries, pane.";
@@ -1011,7 +1015,10 @@ document.addEventListener("DOMContentLoaded", () => {
             return "Vskutku, pane. A já jsem váš poněkud sarkastický operační systém.";
         }
         if (q.includes("garmin") || q.includes("video speichern")) {
-            return "Jawohl, pane! Palubní kamera Stark Industries ukládá posledních 30 sekund záznamu.";
+            return {
+                reply: "Jawohl, pane! Palubní kamera Stark Industries ukládá posledních 30 sekund záznamu.",
+                image_url: "assets/garmin.gif"
+            };
         }
         if (q.includes("kolik je hodin") || q.includes("čas")) {
             return `Aktuální čas je ${new Date().toLocaleTimeString("cs-CZ")}, pane.`;
@@ -1201,6 +1208,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (cfg.email_imap_host && inputEmailHost) inputEmailHost.value = cfg.email_imap_host;
             if (cfg.hue_bridge_ip !== undefined && inputHueIp) inputHueIp.value = cfg.hue_bridge_ip;
             if (cfg.hue_group_id !== undefined && inputHueGroup) inputHueGroup.value = cfg.hue_group_id;
+            if (cfg.news_topics !== undefined && inputNewsTopics) inputNewsTopics.value = cfg.news_topics;
         } catch (e) {}
     }
 
@@ -1234,6 +1242,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const hueIp = inputHueIp ? inputHueIp.value.trim() : "";
         const hueUser = inputHueUser ? inputHueUser.value.trim() : "";
         const hueGroup = inputHueGroup ? inputHueGroup.value.trim() : "";
+        const newsTopics = inputNewsTopics ? inputNewsTopics.value.trim() : "";
 
         const payload = {};
         if (apiKey) payload.gemini_api_key = apiKey;
@@ -1248,6 +1257,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (inputHueIp) payload.hue_bridge_ip = hueIp;
         if (hueUser) payload.hue_username = hueUser;
         if (inputHueGroup && hueGroup) payload.hue_group_id = hueGroup;
+        if (inputNewsTopics && newsTopics) payload.news_topics = newsTopics;
 
         try {
             const res = await fetch(apiUrl("/api/config"), {
