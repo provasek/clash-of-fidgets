@@ -1406,37 +1406,67 @@ window.selectGarrisonUnit = function(unitId) {
 window.trainUnitInCity = function(type, cityId) {
     const cost = UNIT_TYPES[type].cost;
     if (G.factions.solaria.stars < cost) {
-        showToast('❌ Nedostatek Hvězd ⭐ na výcvik!');
+        showToast(`❌ Nedostatek Hvězd ⭐ na výcvik (potřeba ${cost} ⭐)!`);
         return;
     }
 
     const scene = game.scene.getScene('PolytropiaScene');
     const city = scene.cities.find(c => c.id === cityId);
+    if (!city) return;
 
+    let spawnX = city.gx;
+    let spawnY = city.gy;
     const hasGarrison = scene.units.some(u => u.gx === city.gx && u.gy === city.gy);
+
+    // Pokud v městě již stojí posádka, spawnuj na nejbližší volné políčko kolem města!
     if (hasGarrison) {
-        showToast('⚠️ V městě již stojí posádka! Přesuň stávající jednotku pryč.');
-        return;
+        let foundSpot = false;
+        const offsets = [
+            { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 0, dy: -1 },
+            { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }
+        ];
+
+        for (let off of offsets) {
+            const tx = city.gx + off.dx;
+            const ty = city.gy + off.dy;
+            if (tx >= 0 && tx < G.gridSize && ty >= 0 && ty < G.gridSize) {
+                const occ = scene.units.some(u => u.gx === tx && u.gy === ty);
+                const isWater = scene.map[tx][ty].biome === 'water';
+                const isMountain = scene.map[tx][ty].biome === 'mountain';
+                if (!occ && !isWater && !isMountain) {
+                    spawnX = tx;
+                    spawnY = ty;
+                    foundSpot = true;
+                    break;
+                }
+            }
+        }
+
+        if (!foundSpot) {
+            showToast('⚠️ V městě i kolem hradeb je plno! Uvolni místo.');
+            return;
+        }
     }
 
     G.factions.solaria.stars -= cost;
     const newUnit = {
-        id: Date.now(),
+        id: Date.now() + Math.random(),
         owner: 'solaria',
         type: type,
-        gx: city.gx,
-        gy: city.gy,
+        gx: spawnX,
+        gy: spawnY,
         hp: UNIT_TYPES[type].hp,
         maxHp: UNIT_TYPES[type].maxHp,
-        moved: true,
-        attacked: true,
+        moved: false,
+        attacked: false,
         kills: 0,
         isVeteran: false
     };
 
     scene.units.push(newUnit);
     SFX.play('level_up');
-    showToast(`⚔️ Vycvičen nový ${UNIT_TYPES[type].name}!`);
+    const spawnLoc = (spawnX === city.gx && spawnY === city.gy) ? 'v městě' : 'u hradeb města';
+    showToast(`⚔️ Naverbován nový ${UNIT_TYPES[type].name} (${spawnLoc})!`);
 
     scene.renderUnits();
     updateHUD();
@@ -1511,11 +1541,13 @@ window.foundNewCityWithSettler = function() {
     triggerConfetti(scene, (newCity.gx - newCity.gy) * (scene.tileW / 2), (newCity.gx + newCity.gy) * (scene.tileH / 2));
     showToast(`🎉 Založeno nové město: ${newCity.name}!`);
 
+    scene.revealFogAround(newCity.gx, newCity.gy, 2);
     scene.renderMapTiles();
     scene.renderCities();
     scene.renderUnits();
     updateHUD();
     renderMinimap();
+    closeDock();
     scene.selectCity(newCity);
 };
 
