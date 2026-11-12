@@ -8,6 +8,8 @@ document.addEventListener("DOMContentLoaded", () => {
         ttsEnabled: true,
         isListening: false,
         isSpeaking: false,
+        wakeMode: false,
+        wakeArmedUntil: 0,
         coreIntensity: 1.0,
         coreTargetIntensity: 1.0,
         threatLevel: "NOMINAL",
@@ -84,6 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const inputHueGroup = document.getElementById("input-hue-group");
     const btnHueRooms = document.getElementById("btn-hue-rooms");
     const hueRoomsHint = document.getElementById("hue-rooms-hint");
+    const btnWakeToggle = document.getElementById("btn-wake-toggle");
     const btnSaveConfig = document.getElementById("btn-save-config");
     const configStatusMsg = document.getElementById("config-status-msg");
 
@@ -268,31 +271,71 @@ document.addEventListener("DOMContentLoaded", () => {
             if (finalText.trim()) {
                 gotFinalResult = true;
                 const transcript = finalText.trim();
-                voiceIndicator.textContent = `ZACHYCENO: "${transcript}"`;
-                chatInput.value = transcript;
-                try { recognition.stop(); } catch (e) {}
-                stopListening();
-                handleUserMessage(transcript);
+                if (state.wakeMode) {
+                    if (state.isSpeaking) return;
+                    const wakeRegex = /(?:hej\s+|hey\s+|ahoj\s+)?(?:jarvisi|jarvise|jarvis|jarvy|džárvis[ie]?|džarvis[ie]?|žárvis[ie]?)/i;
+                    const wm = transcript.match(wakeRegex);
+                    if (wm) {
+                        const cmdAfter = transcript.slice(wm.index + wm[0].length).replace(/^[\s,.:;!?-]+/, "").trim();
+                        if (cmdAfter.length >= 2) {
+                            state.wakeArmedUntil = 0;
+                            voiceIndicator.textContent = `WAKE PŘÍKAZ: "${cmdAfter}"`;
+                            chatInput.value = cmdAfter;
+                            handleUserMessage(cmdAfter);
+                        } else {
+                            state.wakeArmedUntil = Date.now() + 10000;
+                            playTone(1046, 'sine', 0.14, 0.12);
+                            voiceIndicator.textContent = "ANO, PANE? (POSLOUCHÁM PŘÍKAZ...)";
+                        }
+                    } else if (Date.now() < state.wakeArmedUntil) {
+                        state.wakeArmedUntil = 0;
+                        voiceIndicator.textContent = `WAKE PŘÍKAZ: "${transcript}"`;
+                        chatInput.value = transcript;
+                        handleUserMessage(transcript);
+                    }
+                } else {
+                    voiceIndicator.textContent = `ZACHYCENO: "${transcript}"`;
+                    chatInput.value = transcript;
+                    try { recognition.stop(); } catch (e) {}
+                    stopListening();
+                    handleUserMessage(transcript);
+                }
             }
         };
 
         recognition.onerror = (event) => {
             console.warn("Speech recognition error:", event.error);
             if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                state.wakeMode = false;
+                if (btnWakeToggle) btnWakeToggle.innerHTML = `<span class="btn-bracket">[</span> 👂 WAKE "JARVISI": OFF <span class="btn-bracket">]</span>`;
                 voiceIndicator.textContent = "MIKROFON BLOKOVÁN: Povolte přístup v řádku prohlížeče (ikona zámku 🔒 u URL).";
             } else if (event.error === 'audio-capture') {
+                state.wakeMode = false;
+                if (btnWakeToggle) btnWakeToggle.innerHTML = `<span class="btn-bracket">[</span> 👂 WAKE "JARVISI": OFF <span class="btn-bracket">]</span>`;
                 voiceIndicator.textContent = "MIKROFON NENALEZEN: Zkontrolujte v Chromu (chrome://settings/content/microphone), že je vybraný 'Microphone Array (Realtek(R) Audio)'.";
             } else if (event.error === 'network') {
                 voiceIndicator.textContent = "CHYBA SÍTĚ ŘEČI: Prohlížeč blokuje Google Speech API (použijte Chrome nebo Edge).";
             } else if (event.error === 'no-speech') {
-                voiceIndicator.textContent = "ŽÁDNÁ ŘEČ NEBYLA ZACHYCENA. ZKUSTE TO ZNOVU.";
+                if (!state.wakeMode) {
+                    voiceIndicator.textContent = "ŽÁDNÁ ŘEČ NEBYLA ZACHYCENA. ZKUSTE TO ZNOVU.";
+                }
             } else if (event.error !== 'aborted') {
                 voiceIndicator.textContent = `HLASOVÝ VSTUP CHYBA: ${event.error}`;
             }
-            stopListening();
+            if (!state.wakeMode) {
+                stopListening();
+            }
         };
 
         recognition.onend = () => {
+            if (state.wakeMode) {
+                setTimeout(() => {
+                    if (state.wakeMode) {
+                        try { recognition.start(); } catch (e) {}
+                    }
+                }, 400);
+                return;
+            }
             if (!gotFinalResult && state.isListening && !voiceIndicator.textContent.includes("CHYBA") && !voiceIndicator.textContent.includes("BLOKOVÁN") && !voiceIndicator.textContent.includes("NENALEZEN")) {
                 voiceIndicator.textContent = "POSLOUCHÁNÍ UKONČENO (Zkontrolujte mikrofon nebo zkuste znovu).";
             }
@@ -331,6 +374,31 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     btnMic.addEventListener("click", toggleListening);
+
+    if (btnWakeToggle) {
+        btnWakeToggle.addEventListener("click", () => {
+            if (!recognition) return;
+            getAudioContext();
+            state.wakeMode = !state.wakeMode;
+            state.wakeArmedUntil = 0;
+            if (state.wakeMode) {
+                btnWakeToggle.innerHTML = `<span class="btn-bracket">[</span> 👂 WAKE "JARVISI": ON <span class="btn-bracket">]</span>`;
+                btnWakeToggle.style.borderColor = "#ffbe0b";
+                btnWakeToggle.style.color = "#ffbe0b";
+                voiceIndicator.textContent = "WAKE REŽIM AKTIVNÍ: ŘEKNĚTE 'JARVISI ...'";
+                if (!state.isListening) {
+                    try { recognition.start(); } catch (e) {}
+                }
+            } else {
+                btnWakeToggle.innerHTML = `<span class="btn-bracket">[</span> 👂 WAKE "JARVISI": OFF <span class="btn-bracket">]</span>`;
+                btnWakeToggle.style.borderColor = "";
+                btnWakeToggle.style.color = "";
+                try { recognition.stop(); } catch (e) {}
+                stopListening();
+                voiceIndicator.textContent = "STISKNĚTE PRO DIKTOVÁNÍ NEBO PIŠTE NÍŽE";
+            }
+        });
+    }
 
     // ==========================================
     // 3. HOLOGRAPHIC ARC REACTOR CANVAS RENDERER
