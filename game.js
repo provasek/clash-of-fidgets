@@ -1,126 +1,74 @@
 /**
- * Království Železa a Kamene: Budovatelská Strategie
- * Plnohodnotná izometrická budovatelská strategie (ve stylu Settlers / Anno / Stronghold).
- * Reálná ekonomická simulace: Dělníci, těžba dřeva a kamene, tavení železa, pole a chléb, hradby a věže.
- * 20x20 volná stavitelská mapa s kamerovým posunem myší (WASD / drag), plynulým zoomem a detailní simulací.
+ * Polytropia: Civilizace Hvězd (Tahová 4X Strategie)
+ * Inspirováno: The Battle of Polytopia x Sid Meier's Civilization.
+ * Komplexní tahový model: Mlha neznáma (Fog of War), expanze měst, technologický strom,
+ * rivalská AI civilizace a uspokojivý "eXplore, eXpand, eXploit, eXterminate" cyklus.
  */
 
-// --- GLOBAL KINGDOM SIMULATION STATE ---
-const K = {
-    speedMultiplier: 1,
-    resources: {
-        wood: 450,
-        stone: 300,
-        iron: 150,
-        food: 280,
-        gold: 650
+// --- GLOBAL GAME STATE ---
+const G = {
+    turn: 1,
+    maxTurns: 30,
+    score: 120,
+    player: {
+        id: 'player',
+        name: 'Impérium Solaria',
+        color: 0x38bdf8, // Cyan Blue
+        stars: 12,
+        unlockedTechs: ['farming'] // 'farming', 'mining', 'archery', 'sailing', 'smithing'
     },
-    demographics: {
-        population: 12,
-        maxPopulation: 20,
-        employed: 8
+    ai: {
+        id: 'ai',
+        name: 'Klan Ocelových Hor',
+        color: 0xef4444, // Crimson Red
+        stars: 10,
+        unlockedTechs: ['mining']
     },
-    mapSize: 20, // 20x20 Isometric Tile Grid
-    selectedBuildTool: null, // null | 'lumberjack' | 'quarry' | 'iron_mine' | 'farm' | 'house' | 'wall' | 'guard_tower' | 'road' | 'demolish'
-    buildings: [
-        // Počáteční královský hrad uprostřed
-        { id: 1, type: 'castle', gx: 9, gy: 9, level: 1, name: 'Královský Hrad', workers: 0 },
-        { id: 2, type: 'house', gx: 8, gy: 11, level: 1, name: 'Selská Chalupa', workers: 0 },
-        { id: 3, type: 'house', gx: 10, gy: 11, level: 1, name: 'Selská Chalupa', workers: 0 },
-        { id: 4, type: 'lumberjack', gx: 6, gy: 8, level: 1, name: 'Dřevorubecký Srub', workers: 2 },
-        { id: 5, type: 'farm', gx: 12, gy: 8, level: 1, name: 'Pšeničné Pole & Mlýn', workers: 2 }
-    ],
-    roads: [
-        { gx: 9, gy: 10 },
-        { gx: 9, gy: 11 },
-        { gx: 8, gy: 10 },
-        { gx: 10, gy: 10 }
-    ],
-    soundEnabled: true
+    gridSize: 14, // 14x14 Hex/Iso Grid
+    selectedEntity: null, // { type: 'unit' | 'city', data: obj }
+    gameOver: false
 };
 
-// --- DEFINICE VŠECH BUDOV A JEJICH NÁKLADŮ/PRODUKCE ---
-const BUILDING_TYPES = {
-    lumberjack: {
-        name: 'Dřevorubec',
-        icon: '🪓',
-        category: 'economy',
-        desc: 'Těží dřevo z okolních hvozdů. Základní surovina pro veškerou výstavbu.',
-        cost: { wood: 40, gold: 30 },
-        produces: { wood: 18 },
-        consumes: { food: 4 },
-        workers: 2
-    },
-    quarry: {
-        name: 'Kamenolom',
-        icon: '⛏️',
-        category: 'economy',
-        desc: 'Dobývá stavební kvádry z kamenných ložisek. Nutné pro hradby a věže.',
-        cost: { wood: 80, gold: 50 },
-        produces: { stone: 12 },
-        consumes: { food: 5 },
-        workers: 3
-    },
-    iron_mine: {
-        name: 'Železná Huť',
-        icon: '⛓️',
-        category: 'economy',
-        desc: 'Taví železnou rudu na ingotovou ocel pro zbraně a pokročilá opevnění.',
-        cost: { wood: 120, stone: 90, gold: 80 },
-        produces: { iron: 6 },
-        consumes: { food: 6 },
-        workers: 4
-    },
-    farm: {
-        name: 'Pšeničné Pole',
+// --- DATA DEFINITIONS ---
+const TECH_TREE = {
+    farming: {
+        name: 'Zemědělství',
         icon: '🌾',
-        category: 'economy',
-        desc: 'Pěstuje obilí a peče chléb. Bez jídla lidé hladoví a odcházejí z panství.',
-        cost: { wood: 50, gold: 40 },
-        produces: { food: 24 },
-        consumes: {},
-        workers: 2
+        cost: 6,
+        desc: 'Umožňuje kultivovat úrodná pole na obilné farmy (+2 Růst města).',
+        unlocked: true
     },
-    house: {
-        name: 'Obytný Dům',
-        icon: '🏡',
-        category: 'housing',
-        desc: 'Poskytuje přístřeší pro 8 nových poddaných a generuje daně do pokladny.',
-        cost: { wood: 60, stone: 30, gold: 50 },
-        produces: { gold: 15 },
-        popCapacity: 8,
-        workers: 0
+    mining: {
+        name: 'Hornictví',
+        icon: '⛏️',
+        cost: 8,
+        desc: 'Umožňuje hloubit doly na horách se zlatem (+3 Hvězdy/tah).',
+        unlocked: false
     },
-    tavern: {
-        name: 'Královský Hostinec',
-        icon: '🍺',
-        category: 'housing',
-        desc: 'Zvyšuje spokojenost obyvatel a přitahuje do království zkušené řemeslníky.',
-        cost: { wood: 110, stone: 60, gold: 120 },
-        produces: { gold: 30 },
-        consumes: { food: 8 },
-        workers: 2
-    },
-    wall: {
-        name: 'Kamenná Hradba',
-        icon: '🧱',
-        category: 'military',
-        desc: 'Neprostupné opevnění chránící vnitřní město před nájezdy banditů.',
-        cost: { stone: 25 },
-        workers: 0
-    },
-    guard_tower: {
-        name: 'Strážní Věž',
+    archery: {
+        name: 'Lukostřelba',
         icon: '🏹',
-        category: 'military',
-        desc: 'Lučištníci střeží perimetr města a automaticky odrážejí nepřátelské nájezdníky.',
-        cost: { wood: 80, stone: 100, iron: 30, gold: 90 },
-        workers: 2
+        cost: 9,
+        desc: 'Odemyká výcvik Lučištníků (dálkový útok přes 2 políčka).',
+        unlocked: false
+    },
+    smithing: {
+        name: 'Kovářství',
+        icon: '⚔️',
+        cost: 14,
+        desc: 'Odemyká Těžkooděnce (silná pěchota s vysokým brněním).',
+        unlocked: false
     }
 };
 
-// --- PROCEDURAL STRATEGY AUDIO SYNTHESIZER ---
-class MedievalAudioEngine {
+const UNIT_TYPES = {
+    warrior: { name: 'Válečník', icon: '🗡️', hp: 10, maxHp: 10, atk: 4, def: 2, range: 1, move: 1, cost: 3 },
+    archer: { name: 'Lučištník', icon: '🏹', hp: 8, maxHp: 8, atk: 3, def: 1, range: 2, move: 1, cost: 5 },
+    knight: { name: 'Rytíř', icon: '🐎', hp: 14, maxHp: 14, atk: 6, def: 3, range: 1, move: 2, cost: 8 }
+};
+
+// --- PROCEDURAL AUDIO (Clean Modern UI Pops, Fanfares & Hits) ---
+class CivAudioEngine {
     constructor() {
         this.ctx = null;
     }
@@ -131,689 +79,944 @@ class MedievalAudioEngine {
         }
     }
     play(sound) {
-        if (!K.soundEnabled) return;
         this.init();
         if (this.ctx.state === 'suspended') this.ctx.resume();
         const t = this.ctx.currentTime;
 
-        if (sound === 'wood_chop') {
-            const osc = this.ctx.createOscillator();
-            const g = this.ctx.createGain();
-            osc.connect(g);
-            g.connect(this.ctx.destination);
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(180, t);
-            osc.frequency.exponentialRampToValueAtTime(50, t + 0.08);
-            g.gain.setValueAtTime(0.35, t);
-            g.gain.exponentialRampToValueAtTime(0.01, t + 0.09);
-            osc.start(t);
-            osc.stop(t + 0.09);
-        } else if (sound === 'stone_place') {
-            const osc = this.ctx.createOscillator();
-            const g = this.ctx.createGain();
-            osc.connect(g);
-            g.connect(this.ctx.destination);
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(110, t);
-            osc.frequency.exponentialRampToValueAtTime(30, t + 0.14);
-            g.gain.setValueAtTime(0.4, t);
-            g.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
-            osc.start(t);
-            osc.stop(t + 0.15);
-        } else if (sound === 'coin_tax') {
+        if (sound === 'select') {
             const osc = this.ctx.createOscillator();
             const g = this.ctx.createGain();
             osc.connect(g);
             g.connect(this.ctx.destination);
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(1200, t);
-            osc.frequency.exponentialRampToValueAtTime(1800, t + 0.12);
-            g.gain.setValueAtTime(0.18, t);
-            g.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+            osc.frequency.setValueAtTime(600, t);
+            osc.frequency.exponentialRampToValueAtTime(900, t + 0.06);
+            g.gain.setValueAtTime(0.15, t);
+            g.gain.exponentialRampToValueAtTime(0.01, t + 0.07);
             osc.start(t);
-            osc.stop(t + 0.15);
+            osc.stop(t + 0.07);
+        } else if (sound === 'move') {
+            const osc = this.ctx.createOscillator();
+            const g = this.ctx.createGain();
+            osc.connect(g);
+            g.connect(this.ctx.destination);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(280, t);
+            osc.frequency.exponentialRampToValueAtTime(140, t + 0.09);
+            g.gain.setValueAtTime(0.2, t);
+            g.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+            osc.start(t);
+            osc.stop(t + 0.1);
+        } else if (sound === 'fog') {
+            // White noise whoosh
+            const bSize = this.ctx.sampleRate * 0.15;
+            const buffer = this.ctx.createBuffer(1, bSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = buffer;
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(800, t);
+            filter.frequency.exponentialRampToValueAtTime(100, t + 0.15);
+            const g = this.ctx.createGain();
+            g.gain.setValueAtTime(0.25, t);
+            g.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+            noise.connect(filter);
+            filter.connect(g);
+            g.connect(this.ctx.destination);
+            noise.start(t);
+        } else if (sound === 'level_up') {
+            // Cheerful Arpeggio
+            [523.25, 659.25, 783.99, 1046.50].forEach((f, idx) => {
+                const osc = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                osc.connect(g);
+                g.connect(this.ctx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(f, t + idx * 0.08);
+                g.gain.setValueAtTime(0.2, t + idx * 0.08);
+                g.gain.exponentialRampToValueAtTime(0.01, t + idx * 0.08 + 0.2);
+                osc.start(t + idx * 0.08);
+                osc.stop(t + idx * 0.08 + 0.2);
+            });
         }
     }
 }
-const SFX = new MedievalAudioEngine();
+const SFX = new CivAudioEngine();
 
-// --- DETAILNÍ PROCEDURÁLNÍ TEXTURY PRO IZOMETRICKÝ STRATEGICKÝ ENGINE ---
-function generateStrategyTextures(scene) {
+// --- CLEAN LOW-POLY / VECTOR PROCEDURAL TEXTURES ---
+function generatePolytopiaTextures(scene) {
     const gfx = scene.make.graphics({ x: 0, y: 0, add: false });
 
-    // 1. Lush Green Grass Tile (64x32 Isometric Diamond)
-    if (!scene.textures.exists('tile_grass')) {
+    // 1. Plain Grass Tile (64x32 Isometric Diamond)
+    if (!scene.textures.exists('tile_plain')) {
         gfx.clear();
-        gfx.fillStyle(0x2d6a4f, 1);
+        gfx.fillStyle(0x4ade80, 1);
         gfx.beginPath();
-        gfx.moveTo(32, 0);
-        gfx.lineTo(64, 16);
-        gfx.lineTo(32, 32);
-        gfx.lineTo(0, 16);
+        gfx.moveTo(32, 0); gfx.lineTo(64, 16); gfx.lineTo(32, 32); gfx.lineTo(0, 16);
         gfx.closePath();
         gfx.fillPath();
-        // Grass texture blades
-        gfx.lineStyle(1, 0x40916c, 0.6);
+        gfx.lineStyle(1, 0x22c55e, 0.9);
         gfx.strokePath();
-        gfx.fillStyle(0x1b4332, 0.4);
-        gfx.fillCircle(24, 16, 4);
-        gfx.fillCircle(42, 14, 5);
-        gfx.generateTexture('tile_grass', 64, 32);
+        gfx.generateTexture('tile_plain', 64, 32);
     }
 
-    // 2. Cobblestone Road Tile
-    if (!scene.textures.exists('tile_road')) {
+    // 2. Forest Tile
+    if (!scene.textures.exists('tile_forest')) {
         gfx.clear();
-        gfx.fillStyle(0x64748b, 1);
-        gfx.beginPath();
-        gfx.moveTo(32, 0);
-        gfx.lineTo(64, 16);
-        gfx.lineTo(32, 32);
-        gfx.lineTo(0, 16);
-        gfx.closePath();
-        gfx.fillPath();
-        gfx.lineStyle(1, 0x334155, 0.8);
-        gfx.strokePath();
-        gfx.generateTexture('tile_road', 64, 32);
-    }
-
-    // 3. Castle Town Hall (Central Bastion)
-    if (!scene.textures.exists('bldg_castle')) {
-        gfx.clear();
-        // Stone base walls
-        gfx.fillStyle(0x475569, 1);
-        gfx.lineStyle(2, 0x1e293b, 1);
-        gfx.fillRect(10, 20, 60, 48);
-        gfx.strokeRect(10, 20, 60, 48);
-        // Towers with battlements
-        gfx.fillStyle(0x334155, 1);
-        gfx.fillRect(4, 8, 20, 60);
-        gfx.fillRect(56, 8, 20, 60);
-        // Red Royal Roofs
-        gfx.fillStyle(0x991b1b, 1);
-        gfx.fillTriangle(4, 8, 14, -6, 24, 8);
-        gfx.fillTriangle(56, 8, 66, -6, 76, 8);
-        // Golden Flag
-        gfx.fillStyle(0xf59e0b, 1);
-        gfx.fillTriangle(14, -6, 26, -12, 14, -2);
-        // Gate
-        gfx.fillStyle(0x1e1b18, 1);
-        gfx.fillRoundedRect(30, 44, 20, 24, 6);
-        gfx.generateTexture('bldg_castle', 80, 72);
-    }
-
-    // 4. House (Peasant Cottage)
-    if (!scene.textures.exists('bldg_house')) {
-        gfx.clear();
-        gfx.fillStyle(0xd6d3d1, 1);
-        gfx.lineStyle(2, 0x78716c, 1);
-        gfx.fillRect(10, 18, 36, 28);
-        gfx.strokeRect(10, 18, 36, 28);
-        // Thatch Roof
-        gfx.fillStyle(0xa16207, 1);
-        gfx.fillTriangle(6, 18, 28, 0, 50, 18);
-        // Door & Window
-        gfx.fillStyle(0x44403c, 1);
-        gfx.fillRect(24, 32, 8, 14);
-        gfx.fillStyle(0x38bdf8, 1);
-        gfx.fillRect(14, 24, 6, 6);
-        gfx.generateTexture('bldg_house', 56, 48);
-    }
-
-    // 5. Lumberjack Hut
-    if (!scene.textures.exists('bldg_lumberjack')) {
-        gfx.clear();
-        gfx.fillStyle(0x78350f, 1);
-        gfx.lineStyle(2, 0x451a03, 1);
-        gfx.fillRect(8, 16, 40, 28);
-        gfx.strokeRect(8, 16, 40, 28);
-        // Wood log piles
-        gfx.fillStyle(0xb45309, 1);
-        gfx.fillCircle(16, 36, 5);
-        gfx.fillCircle(24, 36, 5);
-        // Green roof
-        gfx.fillStyle(0x166534, 1);
-        gfx.fillTriangle(4, 16, 28, 2, 52, 16);
-        gfx.generateTexture('bldg_lumberjack', 56, 48);
-    }
-
-    // 6. Quarry (Stone Pit)
-    if (!scene.textures.exists('bldg_quarry')) {
-        gfx.clear();
-        gfx.fillStyle(0x64748b, 1);
-        gfx.lineStyle(2, 0x334155, 1);
-        gfx.fillRect(8, 14, 44, 30);
-        gfx.strokeRect(8, 14, 44, 30);
-        // Pickaxe & stone boulders
-        gfx.fillStyle(0x94a3b8, 1);
-        gfx.fillCircle(18, 28, 7);
-        gfx.fillCircle(34, 28, 9);
-        gfx.generateTexture('bldg_quarry', 56, 48);
-    }
-
-    // 7. Farm (Windmill & Wheat)
-    if (!scene.textures.exists('bldg_farm')) {
-        gfx.clear();
-        // Wheat patch
-        gfx.fillStyle(0xeab308, 0.85);
-        gfx.fillRect(6, 22, 44, 22);
-        // Mill tower
-        gfx.fillStyle(0xf5f5f4, 1);
-        gfx.lineStyle(2, 0x78716c, 1);
-        gfx.fillRect(20, 8, 18, 32);
-        // Blades
-        gfx.lineStyle(2, 0x78350f, 1);
-        gfx.strokeLineShape(new Phaser.Geom.Line(10, 6, 48, 26));
-        gfx.strokeLineShape(new Phaser.Geom.Line(48, 6, 10, 26));
-        gfx.generateTexture('bldg_farm', 56, 48);
-    }
-
-    // 8. Stone Wall
-    if (!scene.textures.exists('bldg_wall')) {
-        gfx.clear();
-        gfx.fillStyle(0x64748b, 1);
-        gfx.lineStyle(2, 0x1e293b, 1);
-        gfx.fillRect(10, 10, 28, 26);
-        gfx.strokeRect(10, 10, 28, 26);
-        // Battlements
-        gfx.fillRect(10, 4, 8, 6);
-        gfx.fillRect(30, 4, 8, 6);
-        gfx.generateTexture('bldg_wall', 48, 38);
-    }
-
-    // 9. Guard Tower
-    if (!scene.textures.exists('bldg_guard_tower')) {
-        gfx.clear();
-        gfx.fillStyle(0x475569, 1);
-        gfx.lineStyle(2, 0x1e293b, 1);
-        gfx.fillRect(14, 12, 24, 48);
-        gfx.strokeRect(14, 12, 24, 48);
-        // Watch platform
-        gfx.fillStyle(0x991b1b, 1);
-        gfx.fillTriangle(10, 12, 26, -4, 42, 12);
-        gfx.generateTexture('bldg_guard_tower', 52, 64);
-    }
-
-    // 10. Forest Tree Decoration
-    if (!scene.textures.exists('dec_tree')) {
-        gfx.clear();
-        gfx.fillStyle(0x451a03, 1);
-        gfx.fillRect(18, 26, 6, 14);
-        gfx.fillStyle(0x15803d, 1);
-        gfx.fillCircle(21, 16, 14);
         gfx.fillStyle(0x16a34a, 1);
-        gfx.fillCircle(21, 12, 10);
-        gfx.generateTexture('dec_tree', 42, 42);
+        gfx.beginPath();
+        gfx.moveTo(32, 0); gfx.lineTo(64, 16); gfx.lineTo(32, 32); gfx.lineTo(0, 16);
+        gfx.closePath();
+        gfx.fillPath();
+        // Stylized pine tree
+        gfx.fillStyle(0x14532d, 1);
+        gfx.fillTriangle(32, -4, 24, 16, 40, 16);
+        gfx.generateTexture('tile_forest', 64, 32);
+    }
+
+    // 3. Mountain Tile (Stone & Gold)
+    if (!scene.textures.exists('tile_mountain')) {
+        gfx.clear();
+        gfx.fillStyle(0x64748b, 1);
+        gfx.beginPath();
+        gfx.moveTo(32, 0); gfx.lineTo(64, 16); gfx.lineTo(32, 32); gfx.lineTo(0, 16);
+        gfx.closePath();
+        gfx.fillPath();
+        // Peak
+        gfx.fillStyle(0x94a3b8, 1);
+        gfx.fillTriangle(32, -12, 18, 16, 46, 16);
+        // Snow tip
+        gfx.fillStyle(0xf8fafc, 1);
+        gfx.fillTriangle(32, -12, 27, -2, 37, -2);
+        gfx.generateTexture('tile_mountain', 64, 32);
+    }
+
+    // 4. Ocean / Water Tile
+    if (!scene.textures.exists('tile_water')) {
+        gfx.clear();
+        gfx.fillStyle(0x0284c7, 1);
+        gfx.beginPath();
+        gfx.moveTo(32, 0); gfx.lineTo(64, 16); gfx.lineTo(32, 32); gfx.lineTo(0, 16);
+        gfx.closePath();
+        gfx.fillPath();
+        gfx.lineStyle(1, 0x38bdf8, 0.7);
+        gfx.strokePath();
+        gfx.generateTexture('tile_water', 64, 32);
+    }
+
+    // 5. Cloud / Fog of War Cover
+    if (!scene.textures.exists('cloud_fog')) {
+        gfx.clear();
+        gfx.fillStyle(0x1e293b, 1);
+        gfx.fillCircle(32, 16, 26);
+        gfx.fillCircle(20, 16, 18);
+        gfx.fillCircle(44, 16, 18);
+        gfx.generateTexture('cloud_fog', 64, 36);
+    }
+
+    // 6. Ancient Ruins
+    if (!scene.textures.exists('feat_ruins')) {
+        gfx.clear();
+        gfx.fillStyle(0xd97706, 1);
+        gfx.fillRect(24, 6, 16, 18);
+        gfx.fillStyle(0xf59e0b, 1);
+        gfx.fillTriangle(20, 6, 32, -6, 44, 6);
+        gfx.generateTexture('feat_ruins', 64, 32);
+    }
+
+    // 7. City Bastion Icon
+    if (!scene.textures.exists('entity_city')) {
+        gfx.clear();
+        gfx.fillStyle(0x334155, 1);
+        gfx.lineStyle(2, 0x0f172a, 1);
+        gfx.fillRect(16, 10, 32, 30);
+        gfx.strokeRect(16, 10, 32, 30);
+        // Towers
+        gfx.fillStyle(0x1e293b, 1);
+        gfx.fillRect(10, 4, 12, 36);
+        gfx.fillRect(42, 4, 12, 36);
+        gfx.generateTexture('entity_city', 64, 48);
+    }
+
+    // 8. Warrior Unit
+    if (!scene.textures.exists('unit_warrior')) {
+        gfx.clear();
+        gfx.fillStyle(0x0284c7, 1);
+        gfx.fillCircle(20, 20, 14);
+        gfx.lineStyle(2, 0xffffff, 1);
+        gfx.strokeCircle(20, 20, 14);
+        // Sword icon
+        gfx.lineStyle(3, 0xffffff, 1);
+        gfx.beginPath();
+        gfx.moveTo(14, 26); gfx.lineTo(26, 14);
+        gfx.strokePath();
+        gfx.generateTexture('unit_warrior', 40, 40);
+    }
+
+    // 9. Archer Unit
+    if (!scene.textures.exists('unit_archer')) {
+        gfx.clear();
+        gfx.fillStyle(0x16a34a, 1);
+        gfx.fillCircle(20, 20, 14);
+        gfx.lineStyle(2, 0xffffff, 1);
+        gfx.strokeCircle(20, 20, 14);
+        // Bow
+        gfx.lineStyle(2, 0xfacc15, 1);
+        gfx.strokeCircle(20, 20, 8);
+        gfx.generateTexture('unit_archer', 40, 40);
+    }
+
+    // 10. Farm Feature Overlay
+    if (!scene.textures.exists('feat_farm')) {
+        gfx.clear();
+        gfx.fillStyle(0xfacc15, 0.9);
+        gfx.fillRoundedRect(14, 6, 36, 20, 4);
+        gfx.generateTexture('feat_farm', 64, 32);
     }
 
     gfx.destroy();
 }
 
 // ====================================================
-// PHASER SCENE: ISOMETRIC STRATEGY ENGINE
+// PHASER SCENE: 4X WORLD MAP ENGINE
 // ====================================================
-class StrategyKingdomScene extends Phaser.Scene {
+class PolytropiaScene extends Phaser.Scene {
     constructor() {
-        super({ key: 'StrategyKingdomScene' });
+        super({ key: 'PolytropiaScene' });
     }
 
     create() {
-        generateStrategyTextures(this);
+        generatePolytopiaTextures(this);
 
-        this.cameras.main.setBackgroundColor('#141e2e');
+        this.cameras.main.setBackgroundColor('#090d16');
         this.world = this.add.container(this.scale.width / 2, this.scale.height / 3);
 
         this.tileW = 64;
         this.tileH = 32;
 
-        this.buildIsometricTerrain();
-        this.renderRoads();
-        this.renderBuildings();
-        this.scatterEnvironmentalFlora();
-        this.setupInteractiveControls();
+        this.initWorldMapData();
+        this.renderMapTiles();
+        this.renderCities();
+        this.renderUnits();
+        this.renderFogOfWar();
+        this.setupCameraPanning();
 
-        // Listen for screen resize
+        // Reveal Fog around starting player city
+        this.revealFogAround(3, 3, 2);
+
         this.scale.on('resize', (gameSize) => {
             this.world.setPosition(gameSize.width / 2, gameSize.height / 3);
         });
     }
 
-    buildIsometricTerrain() {
-        this.terrainTiles = [];
-        for (let gx = 0; gx < K.mapSize; gx++) {
-            this.terrainTiles[gx] = [];
-            for (let gy = 0; gy < K.mapSize; gy++) {
+    initWorldMapData() {
+        this.map = [];
+        this.fog = []; // true = covered in clouds
+
+        for (let gx = 0; gx < G.gridSize; gx++) {
+            this.map[gx] = [];
+            this.fog[gx] = [];
+            for (let gy = 0; gy < G.gridSize; gy++) {
+                // Procedural Biomes
+                let biome = 'plain';
+                const distToCenter = Math.hypot(gx - G.gridSize / 2, gy - G.gridSize / 2);
+
+                if (gx === 0 || gy === 0 || gx === G.gridSize - 1 || gy === G.gridSize - 1) {
+                    biome = 'water';
+                } else if (Math.random() < 0.22) {
+                    biome = 'forest';
+                } else if (Math.random() < 0.16) {
+                    biome = 'mountain';
+                }
+
+                // Ruins discovery
+                const hasRuins = (biome === 'plain' || biome === 'forest') && Math.random() < 0.08;
+
+                this.map[gx][gy] = {
+                    gx, gy,
+                    biome,
+                    hasRuins,
+                    hasFarm: false,
+                    hasMine: false
+                };
+
+                this.fog[gx][gy] = true; // All fogged initially
+            }
+        }
+
+        // Initialize Player City & AI City
+        this.cities = [
+            { id: 1, owner: 'player', name: 'Solaria', gx: 3, gy: 3, level: 1, progress: 0, progressMax: 2, income: 4 },
+            { id: 2, owner: 'ai', name: 'Khar-Durn', gx: 10, gy: 10, level: 1, progress: 0, progressMax: 2, income: 4 }
+        ];
+
+        // Ensure tiles under cities are plain
+        this.map[3][3].biome = 'plain';
+        this.map[10][10].biome = 'plain';
+
+        // Initialize Starting Units
+        this.units = [
+            { id: 101, owner: 'player', type: 'warrior', gx: 3, gy: 4, hp: 10, maxHp: 10, moved: false, attacked: false },
+            { id: 201, owner: 'ai', type: 'warrior', gx: 10, gy: 9, hp: 10, maxHp: 10, moved: false, attacked: false }
+        ];
+    }
+
+    renderMapTiles() {
+        this.tileSprites = [];
+        for (let gx = 0; gx < G.gridSize; gx++) {
+            this.tileSprites[gx] = [];
+            for (let gy = 0; gy < G.gridSize; gy++) {
                 const sx = (gx - gy) * (this.tileW / 2);
                 const sy = (gx + gy) * (this.tileH / 2);
 
-                const tile = this.add.image(sx, sy, 'tile_grass');
-                tile.setOrigin(0.5, 0.5);
-                tile.setInteractive({ cursor: 'pointer' });
-                tile.gx = gx;
-                tile.gy = gy;
+                const data = this.map[gx][gy];
+                const spr = this.add.image(sx, sy, `tile_${data.biome}`);
+                spr.setOrigin(0.5, 0.5);
+                spr.setInteractive({ cursor: 'pointer' });
+                spr.tileData = data;
 
-                tile.on('pointerover', () => {
-                    tile.setTint(0x86efac);
-                });
-                tile.on('pointerout', () => {
-                    tile.clearTint();
-                });
-                tile.on('pointerdown', (pointer) => {
+                spr.on('pointerdown', (pointer) => {
                     this.onTileClicked(gx, gy, pointer);
                 });
 
-                this.world.add(tile);
-                this.terrainTiles[gx][gy] = tile;
+                this.world.add(spr);
+                this.tileSprites[gx][gy] = spr;
+
+                // Feature ruins overlay
+                if (data.hasRuins) {
+                    const r = this.add.image(sx, sy, 'feat_ruins');
+                    r.setOrigin(0.5, 0.5);
+                    this.world.add(r);
+                    spr.ruinsSprite = r;
+                }
             }
         }
     }
 
-    renderRoads() {
-        if (this.roadSprites) {
-            this.roadSprites.forEach(r => r.destroy());
-        }
-        this.roadSprites = [];
+    renderCities() {
+        if (this.citySprites) this.citySprites.forEach(s => s.destroy());
+        this.citySprites = [];
 
-        K.roads.forEach(r => {
-            const sx = (r.gx - r.gy) * (this.tileW / 2);
-            const sy = (r.gx + r.gy) * (this.tileH / 2);
+        this.cities.forEach(city => {
+            const sx = (city.gx - city.gy) * (this.tileW / 2);
+            const sy = (city.gx + city.gy) * (this.tileH / 2) - 8;
 
-            const road = this.add.image(sx, sy, 'tile_road');
-            road.setOrigin(0.5, 0.5);
-            this.world.add(road);
-            this.roadSprites.push(road);
-        });
-    }
-
-    renderBuildings() {
-        if (this.buildingSprites) {
-            this.buildingSprites.forEach(b => b.destroy());
-        }
-        this.buildingSprites = [];
-
-        K.buildings.forEach(b => {
-            const sx = (b.gx - b.gy) * (this.tileW / 2);
-            const sy = (b.gx + b.gy) * (this.tileH / 2);
-
-            const texKey = `bldg_${b.type}`;
-            const spr = this.add.image(sx, sy, texKey);
-            spr.setOrigin(0.5, 0.8);
+            const spr = this.add.image(sx, sy, 'entity_city');
+            spr.setOrigin(0.5, 0.7);
+            spr.setTint(city.owner === 'player' ? G.player.color : G.ai.color);
             spr.setInteractive({ cursor: 'pointer' });
-            spr.buildingData = b;
+            spr.cityData = city;
 
-            spr.on('pointerdown', (pointer) => {
-                pointer.event.stopPropagation();
-                openBuildingInspector(b);
+            // City Name & Level Banner
+            const banner = this.add.text(sx, sy - 28, `${city.name} (Úr. ${city.level})`, {
+                fontFamily: 'Outfit',
+                fontSize: '11px',
+                fontStyle: '800',
+                color: '#fff',
+                backgroundColor: city.owner === 'player' ? '#0369a1' : '#991b1b',
+                padding: { x: 5, y: 2 }
+            }).setOrigin(0.5);
+
+            spr.on('pointerdown', (p) => {
+                p.event.stopPropagation();
+                this.selectCity(city);
             });
 
             this.world.add(spr);
-            this.buildingSprites.push(spr);
+            this.world.add(banner);
+            this.citySprites.push(spr);
+            this.citySprites.push(banner);
         });
     }
 
-    scatterEnvironmentalFlora() {
-        // Dekorativní stromy na okrajích mapy
-        for (let i = 0; i < 40; i++) {
-            const gx = Math.floor(Math.random() * K.mapSize);
-            const gy = Math.floor(Math.random() * K.mapSize);
-            // Don't place on center city
-            if (gx > 5 && gx < 14 && gy > 5 && gy < 14) continue;
+    renderUnits() {
+        if (this.unitSprites) this.unitSprites.forEach(u => u.destroy());
+        this.unitSprites = [];
 
-            const sx = (gx - gy) * (this.tileW / 2);
-            const sy = (gx + gy) * (this.tileH / 2);
-            const tree = this.add.image(sx, sy, 'dec_tree');
-            tree.setOrigin(0.5, 0.85);
-            this.world.add(tree);
+        this.units.forEach(u => {
+            const sx = (u.gx - u.gy) * (this.tileW / 2);
+            const sy = (u.gx + u.gy) * (this.tileH / 2) - 6;
+
+            const spr = this.add.image(sx, sy, `unit_${u.type}`);
+            spr.setOrigin(0.5, 0.6);
+            spr.setTint(u.owner === 'player' ? G.player.color : G.ai.color);
+            spr.setInteractive({ cursor: 'pointer' });
+            spr.unitData = u;
+
+            // HP text badge
+            const hpBadge = this.add.text(sx + 14, sy - 12, `${u.hp}`, {
+                fontFamily: 'JetBrains Mono',
+                fontSize: '10px',
+                fontStyle: '800',
+                color: '#fff',
+                backgroundColor: '#0f172a',
+                padding: { x: 3, y: 1 }
+            }).setOrigin(0.5);
+
+            spr.on('pointerdown', (p) => {
+                p.event.stopPropagation();
+                this.selectUnit(u);
+            });
+
+            this.world.add(spr);
+            this.world.add(hpBadge);
+            this.unitSprites.push(spr);
+            this.unitSprites.push(hpBadge);
+        });
+    }
+
+    renderFogOfWar() {
+        if (this.fogSprites) {
+            this.fogSprites.forEach(f => f.destroy());
+        }
+        this.fogSprites = [];
+
+        for (let gx = 0; gx < G.gridSize; gx++) {
+            for (let gy = 0; gy < G.gridSize; gy++) {
+                if (this.fog[gx][gy]) {
+                    const sx = (gx - gy) * (this.tileW / 2);
+                    const sy = (gx + gy) * (this.tileH / 2);
+
+                    const cloud = this.add.image(sx, sy, 'cloud_fog');
+                    cloud.setOrigin(0.5, 0.5);
+                    cloud.gx = gx;
+                    cloud.gy = gy;
+                    this.world.add(cloud);
+                    this.fogSprites.push(cloud);
+                }
+            }
         }
     }
 
-    setupInteractiveControls() {
-        // Drag panning for Kingdom view
+    revealFogAround(cx, cy, radius) {
+        let revealedAny = false;
+        for (let x = cx - radius; x <= cx + radius; x++) {
+            for (let y = cy - radius; y <= cy + radius; y++) {
+                if (x >= 0 && x < G.gridSize && y >= 0 && y < G.gridSize) {
+                    if (this.fog[x][y]) {
+                        this.fog[x][y] = false;
+                        revealedAny = true;
+                    }
+                }
+            }
+        }
+
+        if (revealedAny) {
+            SFX.play('fog');
+            this.renderFogOfWar();
+            // Bring cities and units back above clouds
+            this.renderCities();
+            this.renderUnits();
+        }
+    }
+
+    setupCameraPanning() {
         this.input.on('pointermove', (p) => {
-            if (p.isDown && p.buttons === 1 && !K.selectedBuildTool) {
+            if (p.isDown) {
                 this.world.x += (p.x - p.prevPosition.x);
                 this.world.y += (p.y - p.prevPosition.y);
             }
         });
 
-        // Mouse Wheel Zoom
         this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
-            const newScale = Phaser.Math.Clamp(this.world.scaleX - deltaY * 0.001, 0.6, 1.8);
+            const newScale = Phaser.Math.Clamp(this.world.scaleX - deltaY * 0.001, 0.65, 1.8);
             this.world.setScale(newScale);
         });
     }
 
+    // --- SELECTION & INTERACTION ---
+    selectUnit(unit) {
+        if (unit.owner !== 'player') {
+            showToast('⚠️ To je jednotka nepřátelské civilizace!');
+            return;
+        }
+
+        G.selectedEntity = { type: 'unit', data: unit };
+        SFX.play('select');
+        this.highlightMovementTiles(unit);
+        openUnitDock(unit);
+    }
+
+    selectCity(city) {
+        G.selectedEntity = { type: 'city', data: city };
+        SFX.play('select');
+        this.clearTileHighlights();
+        openCityDock(city);
+    }
+
+    highlightMovementTiles(unit) {
+        this.clearTileHighlights();
+        this.moveHighlights = [];
+
+        if (unit.moved) return;
+
+        const maxMove = UNIT_TYPES[unit.type].move;
+        for (let x = unit.gx - maxMove; x <= unit.gx + maxMove; x++) {
+            for (let y = unit.gy - maxMove; y <= unit.gy + maxMove; y++) {
+                if (x >= 0 && x < G.gridSize && y >= 0 && y < G.gridSize) {
+                    if (x === unit.gx && y === unit.gy) continue;
+                    // Don't move into deep water unless sailing
+                    if (this.map[x][y].biome === 'water') continue;
+
+                    const sx = (x - y) * (this.tileW / 2);
+                    const sy = (x + y) * (this.tileH / 2);
+
+                    const ring = this.add.circle(sx, sy, 10, 0x38bdf8, 0.5);
+                    this.world.add(ring);
+                    this.moveHighlights.push({ x, y, sprite: ring });
+                }
+            }
+        }
+    }
+
+    clearTileHighlights() {
+        if (this.moveHighlights) {
+            this.moveHighlights.forEach(h => h.sprite.destroy());
+        }
+        this.moveHighlights = [];
+    }
+
     onTileClicked(gx, gy, pointer) {
-        if (!K.selectedBuildTool) {
-            // If empty tile, show info
-            const existingB = K.buildings.find(b => b.gx === gx && b.gy === gy);
-            if (existingB) {
-                openBuildingInspector(existingB);
-            }
-            return;
-        }
+        // If a unit is selected, try to move or attack
+        if (G.selectedEntity && G.selectedEntity.type === 'unit') {
+            const u = G.selectedEntity.data;
 
-        if (K.selectedBuildTool === 'road') {
-            const hasRoad = K.roads.some(r => r.gx === gx && r.gy === gy);
-            if (!hasRoad && K.resources.stone >= 2) {
-                K.resources.stone -= 2;
-                K.roads.push({ gx, gy });
-                SFX.play('stone_place');
-                this.renderRoads();
-                updateEconomyHUD();
-            }
-            return;
-        }
-
-        if (K.selectedBuildTool === 'demolish') {
-            const idx = K.buildings.findIndex(b => b.gx === gx && b.gy === gy);
-            if (idx !== -1 && K.buildings[idx].type !== 'castle') {
-                const b = K.buildings[idx];
-                K.buildings.splice(idx, 1);
-                SFX.play('stone_place');
-                showToast(`💥 Budova ${b.name} byla zbourána.`);
-                this.renderBuildings();
-                recalculateDemographics();
-                updateEconomyHUD();
-            }
-            return;
-        }
-
-        // Construct new building
-        const bDef = BUILDING_TYPES[K.selectedBuildTool];
-        if (!bDef) return;
-
-        // Check if tile is occupied
-        const isOccupied = K.buildings.some(b => b.gx === gx && b.gy === gy);
-        if (isOccupied) {
-            showToast('⚠️ Na této parcele již stojí jiná budova!');
-            return;
-        }
-
-        // Check resource costs
-        for (let res in bDef.cost) {
-            if (K.resources[res] < bDef.cost[res]) {
-                showToast(`❌ Nedostatek surovin! Chybí ti ${bDef.cost[res]} ${res}.`);
+            // Check if clicked tile is a valid highlighted move
+            const valid = this.moveHighlights && this.moveHighlights.some(h => h.x === gx && h.y === gy);
+            if (valid && !u.moved) {
+                // Check if tile has an enemy unit (Attack!)
+                const targetEnemy = this.units.find(en => en.gx === gx && en.gy === gy && en.owner !== 'player');
+                if (targetEnemy) {
+                    this.executeCombat(u, targetEnemy);
+                } else {
+                    this.executeMove(u, gx, gy);
+                }
                 return;
             }
         }
 
-        // Check workforce
-        const freeWorkers = K.demographics.population - K.demographics.employed;
-        if (bDef.workers > freeWorkers) {
-            showToast(`⚠️ Nedostatek volných dělníků! Potřebuješ ${bDef.workers} lidi, volných máš ${freeWorkers}. Postav obytné domy.`);
-            return;
-        }
-
-        // Deduct costs
-        for (let res in bDef.cost) {
-            K.resources[res] -= bDef.cost[res];
-        }
-
-        K.buildings.push({
-            id: Date.now(),
-            type: K.selectedBuildTool,
-            gx: gx,
-            gy: gy,
-            level: 1,
-            name: bDef.name,
-            workers: bDef.workers
-        });
-
-        SFX.play(bDef.category === 'economy' ? 'wood_chop' : 'stone_place');
-        showToast(`🏗️ Postavena budova: ${bDef.name}!`);
-
-        this.renderBuildings();
-        recalculateDemographics();
-        updateEconomyHUD();
+        // Otherwise deselect
+        this.clearTileHighlights();
+        closeDock();
     }
-}
 
-// --- SIMULATION TICK LOOP (Anno / Settlers Economy) ---
-function startKingdomSimulation() {
-    setInterval(() => {
-        const mul = K.speedMultiplier;
+    executeMove(unit, targetX, targetY) {
+        unit.gx = targetX;
+        unit.gy = targetY;
+        unit.moved = true;
 
-        // 1. Gather all production & consumption from active buildings
-        let netWood = 0;
-        let netStone = 0;
-        let netIron = 0;
-        let netFood = 0;
-        let netGold = 0;
+        SFX.play('move');
+        this.clearTileHighlights();
 
-        K.buildings.forEach(b => {
-            const def = BUILDING_TYPES[b.type];
-            if (!def) return;
+        // Reveal Fog of war
+        this.revealFogAround(targetX, targetY, 2);
 
-            // Production
-            if (def.produces) {
-                if (def.produces.wood) netWood += (def.produces.wood / 60) * b.level * mul;
-                if (def.produces.stone) netStone += (def.produces.stone / 60) * b.level * mul;
-                if (def.produces.iron) netIron += (def.produces.iron / 60) * b.level * mul;
-                if (def.produces.food) netFood += (def.produces.food / 60) * b.level * mul;
-                if (def.produces.gold) netGold += (def.produces.gold / 60) * b.level * mul;
+        // Check Ruins Exploration
+        const tile = this.map[targetX][targetY];
+        if (tile.hasRuins) {
+            tile.hasRuins = false;
+            if (this.tileSprites[targetX][targetY].ruinsSprite) {
+                this.tileSprites[targetX][targetY].ruinsSprite.destroy();
             }
+            const reward = Math.floor(Math.random() * 8 + 6);
+            G.player.stars += reward;
+            G.score += 50;
+            SFX.play('level_up');
+            showToast(`🏛️ STAROVĚKÁ RUINA PROZKOUMÁNA! Získáno +${reward} ⭐ Hvězd!`);
+            updateHUD();
+        }
 
-            // Consumption
-            if (def.consumes) {
-                if (def.consumes.food) netFood -= (def.consumes.food / 60) * mul;
-            }
-        });
+        this.renderUnits();
+        openUnitDock(unit);
+    }
 
-        // 2. People consume food (1 food per 10 people every second)
-        const citizenHunger = (K.demographics.population * 0.12) * mul;
-        netFood -= citizenHunger;
+    executeCombat(attacker, defender) {
+        attacker.moved = true;
+        attacker.attacked = true;
+        this.clearTileHighlights();
 
-        // Apply net
-        K.resources.wood = Math.max(0, K.resources.wood + netWood);
-        K.resources.stone = Math.max(0, K.resources.stone + netStone);
-        K.resources.iron = Math.max(0, K.resources.iron + netIron);
-        K.resources.food = Math.max(0, K.resources.food + netFood);
-        K.resources.gold = Math.max(0, K.resources.gold + netGold);
+        const atkDef = UNIT_TYPES[attacker.type];
+        const defDef = UNIT_TYPES[defender.type];
 
-        // Population growth if food is plentiful
-        if (K.resources.food > 50 && K.demographics.population < K.demographics.maxPopulation) {
-            if (Math.random() < 0.15 * mul) {
-                K.demographics.population += 1;
-                showToast('👶 Do království dorazili noví osadníci!');
+        const dmg = Math.max(1, atkDef.atk - Math.floor(defDef.def / 2));
+        defender.hp -= dmg;
+        SFX.play('move');
+        showToast(`⚔️ Boj! Způsobeno ${dmg} poškození nepříteli!`);
+
+        // Counterattack if in reach
+        if (defender.hp > 0 && Math.abs(attacker.gx - defender.gx) <= 1 && Math.abs(attacker.gy - defender.gy) <= 1) {
+            const counterDmg = Math.max(1, Math.floor(defDef.atk / 2));
+            attacker.hp -= counterDmg;
+        }
+
+        // Defender death
+        if (defender.hp <= 0) {
+            showToast(`💀 Nepřátelská jednotka padla!`);
+            this.units = this.units.filter(x => x !== defender);
+
+            // Move attacker to tile if melee
+            if (atkDef.range === 1) {
+                attacker.gx = defender.gx;
+                attacker.gy = defender.gy;
             }
         }
 
-        // Famine warning
-        if (K.resources.food <= 0) {
-            showToast('⚠️ HLADOMOR! Lidé nemají co jíst, produkce klesá!');
+        // Attacker death
+        if (attacker.hp <= 0) {
+            this.units = this.units.filter(x => x !== attacker);
+            closeDock();
         }
 
-        updateEconomyHUD();
-    }, 1000);
-}
+        this.renderUnits();
+        this.checkVictoryConditions();
+    }
 
-function recalculateDemographics() {
-    let cap = 12; // Base Castle capacity
-    let emp = 0;
-
-    K.buildings.forEach(b => {
-        const def = BUILDING_TYPES[b.type];
-        if (def) {
-            if (def.popCapacity) cap += def.popCapacity * b.level;
-            emp += def.workers;
+    checkVictoryConditions() {
+        const aiCity = this.cities.find(c => c.owner === 'ai');
+        if (!aiCity) {
+            showVictoryScreen('Vítězství! Nepřátelské hlavní město padlo.');
         }
-    });
-
-    K.demographics.maxPopulation = cap;
-    K.demographics.employed = emp;
+    }
 }
 
-// --- HUD & DOM MANAGEMENT ---
-function updateEconomyHUD() {
-    document.getElementById('stat-pop').innerText = `${K.demographics.employed} / ${K.demographics.population} (Max ${K.demographics.maxPopulation})`;
-    document.getElementById('stat-wood').innerText = Math.floor(K.resources.wood);
-    document.getElementById('stat-stone').innerText = Math.floor(K.resources.stone);
-    document.getElementById('stat-iron').innerText = Math.floor(K.resources.iron);
-    document.getElementById('stat-food').innerText = Math.floor(K.resources.food);
-    document.getElementById('stat-gold').innerText = Math.floor(K.resources.gold);
-}
+// --- HUD & DOCK UI MANAGEMENT ---
+function updateHUD() {
+    document.getElementById('hud-turn-num').innerText = G.turn;
+    document.getElementById('hud-stars').innerText = G.player.stars;
+    document.getElementById('hud-score').innerText = G.score;
 
-function setupDockInteraction() {
-    // Category Tabs
-    document.querySelectorAll('.cat-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            populateBuildCards(btn.dataset.cat);
+    // Calculate income from player cities
+    let inc = 0;
+    const scene = game.scene.getScene('PolytropiaScene');
+    if (scene && scene.cities) {
+        scene.cities.forEach(c => {
+            if (c.owner === 'player') inc += c.income;
         });
-    });
-
-    // Speed Multiplier
-    const speedBtn = document.getElementById('btn-speed');
-    speedBtn.addEventListener('click', () => {
-        if (K.speedMultiplier === 1) K.speedMultiplier = 2;
-        else if (K.speedMultiplier === 2) K.speedMultiplier = 5;
-        else K.speedMultiplier = 1;
-        speedBtn.innerText = `⏩ ${K.speedMultiplier}x`;
-    });
-
-    // Audio
-    document.getElementById('btn-audio').addEventListener('click', () => {
-        K.soundEnabled = !K.soundEnabled;
-        document.getElementById('btn-audio').innerText = K.soundEnabled ? '🔊' : '🔇';
-    });
-
-    // Close Inspector
-    document.getElementById('btn-close-insp').addEventListener('click', () => {
-        document.getElementById('inspector-panel').classList.add('hidden');
-    });
-
-    populateBuildCards('economy');
+    }
+    document.getElementById('hud-income').innerText = `+${inc}/kolo`;
+    document.getElementById('hud-cities-count').innerText = scene ? scene.cities.filter(c => c.owner === 'player').length : 1;
 }
 
-function populateBuildCards(category) {
-    const shelf = document.getElementById('build-shelf');
-    shelf.innerHTML = '';
+function openUnitDock(unit) {
+    const dock = document.getElementById('entity-dock');
+    const title = document.getElementById('dock-title');
+    const sub = document.getElementById('dock-subtitle');
+    const shelf = document.getElementById('dock-actions-shelf');
 
-    if (category === 'roads') {
-        shelf.innerHTML = `
-            <div class="build-card ${K.selectedBuildTool === 'road' ? 'selected' : ''}" onclick="selectTool('road')">
-                <div class="b-icon">🛤️</div>
-                <div class="b-info">
-                    <div class="b-name">Dlážděná Cesta</div>
-                    <div class="b-costs">2 🪨 Kamene</div>
-                </div>
-            </div>
-            <div class="build-card ${K.selectedBuildTool === 'demolish' ? 'selected' : ''}" onclick="selectTool('demolish')">
-                <div class="b-icon">💥</div>
-                <div class="b-info">
-                    <div class="b-name">Zbourat Budovu</div>
-                    <div class="b-costs">Uvolní parcelu</div>
-                </div>
-            </div>
-        `;
-        return;
-    }
+    title.innerText = UNIT_TYPES[unit.type].name;
+    sub.innerText = `HP: ${unit.hp}/${unit.maxHp} • Tah: ${unit.moved ? 'Vyčerpán' : 'Připraven'}`;
 
-    for (let key in BUILDING_TYPES) {
-        const b = BUILDING_TYPES[key];
-        if (b.category === category) {
-            let costStr = [];
-            for (let c in b.cost) costStr.push(`${b.cost[c]} ${c}`);
-
-            const card = document.createElement('div');
-            card.className = `build-card ${K.selectedBuildTool === key ? 'selected' : ''}`;
-            card.innerHTML = `
-                <div class="b-icon">${b.icon}</div>
-                <div class="b-info">
-                    <div class="b-name">${b.name}</div>
-                    <div class="b-costs">${costStr.join(' • ')}</div>
-                </div>
-            `;
-            card.onclick = () => selectTool(key);
-            shelf.appendChild(card);
-        }
-    }
-}
-
-window.selectTool = function(toolKey) {
-    if (K.selectedBuildTool === toolKey) {
-        K.selectedBuildTool = null; // Toggle off
-    } else {
-        K.selectedBuildTool = toolKey;
-    }
-    const curCat = document.querySelector('.cat-btn.active').dataset.cat;
-    populateBuildCards(curCat);
-    showToast(K.selectedBuildTool ? `Vybrán nástroj: ${toolKey}. Klikni na mapu pro umístění.` : 'Nástroj zrušen.');
-};
-
-function openBuildingInspector(b) {
-    const panel = document.getElementById('inspector-panel');
-    const title = document.getElementById('insp-title');
-    const content = document.getElementById('insp-content');
-
-    title.innerText = `${b.name} (Úr. ${b.level})`;
-
-    const def = BUILDING_TYPES[b.type] || {};
-    let prodText = [];
-    if (def.produces) {
-        for (let p in def.produces) prodText.push(`+${def.produces[p]} ${p}/min`);
-    }
-
-    content.innerHTML = `
-        <div style="color:#94a3b8; font-size:12px;">${def.desc || 'Centrální královský hrad panství.'}</div>
-        <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; margin:8px 0;">
-            <div>Produkce: <strong style="color:#4ade80;">${prodText.join(', ') || 'Bez přímé produkce'}</strong></div>
-            <div>Pracovníci: <strong>${b.workers} poddaných</strong></div>
-            <div>Pozice: [${b.gx}, ${b.gy}]</div>
+    shelf.innerHTML = `
+        <div class="action-chip ${unit.moved ? 'disabled' : ''}" onclick="healSelectedUnit()">
+            <span>❤️ Odpočinek &amp; Léčení (+3 HP)</span>
         </div>
-        <button class="cat-btn active" style="width:100%; padding:10px;" onclick="upgradeBuilding(${b.id})">
-            🔨 Vylepšit na Úroveň ${b.level + 1}
-        </button>
     `;
 
-    panel.classList.remove('hidden');
+    dock.classList.remove('hidden');
 }
 
-window.upgradeBuilding = function(id) {
-    const b = K.buildings.find(x => x.id === id);
-    if (!b) return;
+function openCityDock(city) {
+    if (city.owner !== 'player') return;
 
-    if (K.resources.wood < 80 || K.resources.stone < 50 || K.resources.gold < 70) {
-        showToast('❌ Nedostatek surovin na vylepšení budovy (potřebuješ 80 🪵, 50 🪨, 70 🪙)!');
+    const dock = document.getElementById('entity-dock');
+    const title = document.getElementById('dock-title');
+    const sub = document.getElementById('dock-subtitle');
+    const shelf = document.getElementById('dock-actions-shelf');
+
+    title.innerText = `Město ${city.name} (Úr. ${city.level})`;
+    sub.innerText = `Růst: ${city.progress}/${city.progressMax} • Příjem: +${city.income} ⭐`;
+
+    shelf.innerHTML = `
+        <div class="action-chip ${G.player.stars < 3 ? 'disabled' : ''}" onclick="trainUnitInCity('warrior', ${city.id})">
+            <span>🗡️ Válečník</span> <span class="cost">(3 ⭐)</span>
+        </div>
+        ${G.player.unlockedTechs.includes('archery') ? `
+            <div class="action-chip ${G.player.stars < 5 ? 'disabled' : ''}" onclick="trainUnitInCity('archer', ${city.id})">
+                <span>🏹 Lučištník</span> <span class="cost">(5 ⭐)</span>
+            </div>
+        ` : ''}
+        <div class="action-chip ${G.player.stars < 5 ? 'disabled' : ''}" onclick="improveCityFarmland(${city.id})">
+            <span>🌾 Založit Farmu</span> <span class="cost">(5 ⭐)</span>
+        </div>
+    `;
+
+    dock.classList.remove('hidden');
+}
+
+window.healSelectedUnit = function() {
+    if (!G.selectedEntity || G.selectedEntity.type !== 'unit') return;
+    const u = G.selectedEntity.data;
+    if (u.moved) return;
+
+    u.hp = Math.min(u.maxHp, u.hp + 3);
+    u.moved = true;
+    showToast('❤️ Jednotka odpočívá a vyléčila 3 HP.');
+
+    const scene = game.scene.getScene('PolytropiaScene');
+    scene.clearTileHighlights();
+    scene.renderUnits();
+    openUnitDock(u);
+};
+
+window.trainUnitInCity = function(type, cityId) {
+    const cost = UNIT_TYPES[type].cost;
+    if (G.player.stars < cost) {
+        showToast('❌ Nemáš dostatek Hvězd ⭐ na výcvik!');
         return;
     }
 
-    K.resources.wood -= 80;
-    K.resources.stone -= 50;
-    K.resources.gold -= 70;
-    b.level += 1;
+    const scene = game.scene.getScene('PolytropiaScene');
+    const city = scene.cities.find(c => c.id === cityId);
 
-    SFX.play('stone_place');
-    showToast(`✨ ${b.name} vylepšeno na úroveň ${b.level}! Zvýšena efektivita.`);
-    document.getElementById('inspector-panel').classList.add('hidden');
-    recalculateDemographics();
-    updateEconomyHUD();
+    // Check if city tile already has a unit
+    const hasUnit = scene.units.some(u => u.gx === city.gx && u.gy === city.gy);
+    if (hasUnit) {
+        showToast('⚠️ Na náměstí města již stojí jiná jednotka!');
+        return;
+    }
+
+    G.player.stars -= cost;
+    G.score += 20;
+
+    scene.units.push({
+        id: Date.now(),
+        owner: 'player',
+        type: type,
+        gx: city.gx,
+        gy: city.gy,
+        hp: UNIT_TYPES[type].hp,
+        maxHp: UNIT_TYPES[type].hp,
+        moved: true,
+        attacked: true
+    });
+
+    SFX.play('move');
+    showToast(`⚔️ Vycvičen nový ${UNIT_TYPES[type].name}!`);
+
+    scene.renderUnits();
+    updateHUD();
+    closeDock();
 };
 
+window.improveCityFarmland = function(cityId) {
+    if (G.player.stars < 5) {
+        showToast('❌ Nedostatek Hvězd na založení farmy!');
+        return;
+    }
+
+    const scene = game.scene.getScene('PolytropiaScene');
+    const city = scene.cities.find(c => c.id === cityId);
+
+    G.player.stars -= 5;
+    city.progress += 1;
+    G.score += 35;
+
+    // Check City Level Up!
+    if (city.progress >= city.progressMax) {
+        city.progress = 0;
+        city.level += 1;
+        city.progressMax += 1;
+        city.income += 2; // Increases city income per turn
+        SFX.play('level_up');
+        showToast(`🎉 MĚSTO ${city.name} POSTOUPILO NA ÚROVEŇ ${city.level}! +2 ⭐ příjem!`);
+    } else {
+        showToast(`🌾 Farma postavena! Pokrok města: ${city.progress}/${city.progressMax}`);
+    }
+
+    scene.renderCities();
+    updateHUD();
+    openCityDock(city);
+};
+
+function closeDock() {
+    document.getElementById('entity-dock').classList.add('hidden');
+    G.selectedEntity = null;
+}
+
+// --- TECH TREE INTERACTION ---
+function renderTechTree() {
+    const grid = document.getElementById('tech-grid');
+    grid.innerHTML = '';
+
+    for (let key in TECH_TREE) {
+        const t = TECH_TREE[key];
+        const isUnlocked = G.player.unlockedTechs.includes(key);
+
+        const node = document.createElement('div');
+        node.className = `tech-node ${isUnlocked ? 'unlocked' : ''}`;
+        node.innerHTML = `
+            <div class="tech-icon">${t.icon}</div>
+            <div class="tech-details">
+                <div class="tech-title">${t.name}</div>
+                <div class="tech-desc">${t.desc}</div>
+                <div class="tech-cost">${isUnlocked ? '✅ VYZKOUMÁNO' : `Cena: ${t.cost} ⭐`}</div>
+            </div>
+        `;
+
+        if (!isUnlocked) {
+            node.onclick = () => unlockTechnology(key);
+        }
+
+        grid.appendChild(node);
+    }
+}
+
+function unlockTechnology(techKey) {
+    const t = TECH_TREE[techKey];
+    if (G.player.stars < t.cost) {
+        showToast('❌ Nemáš dostatek Hvězd ⭐ na výzkum této technologie!');
+        return;
+    }
+
+    G.player.stars -= t.cost;
+    G.player.unlockedTechs.push(techKey);
+    G.score += 50;
+
+    SFX.play('level_up');
+    showToast(`🔬 TECHNOLOGIE OBJEVENÁ: ${t.name}!`);
+
+    renderTechTree();
+    updateHUD();
+}
+
+// --- TURN SIMULATION & AI RIVAL TURN ---
+function executeEndTurn() {
+    G.turn += 1;
+
+    // 1. Gather player income
+    const scene = game.scene.getScene('PolytropiaScene');
+    scene.cities.forEach(c => {
+        if (c.owner === 'player') G.player.stars += c.income;
+        if (c.owner === 'ai') G.ai.stars += c.income;
+    });
+
+    // 2. Reset player units move flag
+    scene.units.forEach(u => {
+        u.moved = false;
+        u.attacked = false;
+    });
+
+    showToast(`⏳ ZAČAL TAH ${G.turn}. Suroviny byly vybrány!`);
+
+    // 3. AI Rival Turn Execution (Smart Simple Bot)
+    executeAITurn(scene);
+
+    scene.renderUnits();
+    scene.clearTileHighlights();
+    closeDock();
+    updateHUD();
+
+    // Check Max Turn Victory (30 Turns Limit)
+    if (G.turn > G.maxTurns) {
+        showVictoryScreen('Konec 30 tahů! Zvítězil jsi na body rozvojem říše.');
+    }
+}
+
+function executeAITurn(scene) {
+    const aiUnits = scene.units.filter(u => u.owner === 'ai');
+    const aiCity = scene.cities.find(c => c.owner === 'ai');
+
+    // AI train unit if enough stars and empty city
+    if (G.ai.stars >= 3 && aiCity) {
+        const hasUnitInCity = scene.units.some(u => u.gx === aiCity.gx && u.gy === aiCity.gy);
+        if (!hasUnitInCity) {
+            G.ai.stars -= 3;
+            scene.units.push({
+                id: Date.now() + Math.random(),
+                owner: 'ai',
+                type: 'warrior',
+                gx: aiCity.gx,
+                gy: aiCity.gy,
+                hp: 10,
+                maxHp: 10,
+                moved: false,
+                attacked: false
+            });
+        }
+    }
+
+    // AI Units move towards player city
+    aiUnits.forEach(u => {
+        const playerCity = scene.cities.find(c => c.owner === 'player');
+        if (!playerCity) return;
+
+        let nextX = u.gx;
+        let nextY = u.gy;
+
+        if (playerCity.gx < u.gx) nextX -= 1;
+        else if (playerCity.gx > u.gx) nextX += 1;
+
+        if (playerCity.gy < u.gy) nextY -= 1;
+        else if (playerCity.gy > u.gy) nextY += 1;
+
+        // Check if player unit is adjacent -> attack!
+        const targetPlayer = scene.units.find(pu => pu.gx === nextX && pu.gy === nextY && pu.owner === 'player');
+        if (targetPlayer) {
+            targetPlayer.hp -= 3;
+            showToast('⚠️ Nepřátelská armáda zaútočila na tvou jednotku!');
+            if (targetPlayer.hp <= 0) {
+                scene.units = scene.units.filter(x => x !== targetPlayer);
+            }
+        } else if (nextX >= 0 && nextX < G.gridSize && nextY >= 0 && nextY < G.gridSize) {
+            if (scene.map[nextX][nextY].biome !== 'water') {
+                u.gx = nextX;
+                u.gy = nextY;
+            }
+        }
+    });
+}
+
+function showVictoryScreen(msg) {
+    G.gameOver = true;
+    document.getElementById('vic-desc').innerText = msg;
+    document.getElementById('vic-score').innerText = G.score;
+    document.getElementById('game-over-modal').classList.remove('hidden');
+}
+
 function showToast(msg) {
-    const deck = document.getElementById('toast-deck');
+    const rack = document.getElementById('toast-container');
     const toast = document.createElement('div');
-    toast.className = 'strat-toast';
+    toast.className = 'civ-toast';
     toast.innerText = msg;
-    deck.appendChild(toast);
+    rack.appendChild(toast);
     setTimeout(() => toast.remove(), 3200);
 }
 
-// --- INIT ENGINE ---
+// --- INIT APP LISTENERS ---
 const phaserConfig = {
     type: Phaser.AUTO,
-    parent: 'canvas-container',
+    parent: 'phaser-viewport',
     width: window.innerWidth,
     height: window.innerHeight,
-    scene: [StrategyKingdomScene]
+    scene: [PolytropiaScene]
 };
 
+let game = null;
+
 window.addEventListener('DOMContentLoaded', () => {
-    new Phaser.Game(phaserConfig);
-    setupDockInteraction();
-    startKingdomSimulation();
-    recalculateDemographics();
-    updateEconomyHUD();
+    game = new Phaser.Game(phaserConfig);
+
+    // End Turn Button
+    document.getElementById('btn-end-turn').addEventListener('click', executeEndTurn);
+
+    // Tech Modal
+    document.getElementById('btn-open-tech').addEventListener('click', () => {
+        renderTechTree();
+        document.getElementById('tech-modal').classList.remove('hidden');
+    });
+    document.getElementById('btn-close-tech').addEventListener('click', () => {
+        document.getElementById('tech-modal').classList.add('hidden');
+    });
+
+    // Dock Close
+    document.getElementById('btn-close-dock').addEventListener('click', closeDock);
+
+    // Restart
+    document.getElementById('btn-restart-game').addEventListener('click', () => {
+        window.location.reload();
+    });
+
+    updateHUD();
 });

@@ -3,119 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Království Železa a Kamene: Budovatelská Strategie</title>
-    <!-- Medieval & Strategy Fonts -->
+    <title>Polytropia: Civilizace Hvězd (Tahová 4X Strategie)</title>
+    <!-- Modern Clean Minimalist Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=MedievalSharp&family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <!-- Phaser 3.80.1 Engine -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 <body>
-    <div id="game-root">
-        <!-- Phaser Canvas Mount Point -->
-        <div id="canvas-container"></div>
+    <div id="game-app">
+        <!-- Canvas Container -->
+        <div id="phaser-viewport"></div>
 
-        <!-- Strategy HUD Header: Kingdom Economy & Demographics -->
-        <header id="kingdom-hud">
-            <div class="hud-brand">
-                <div class="realm-crest">👑</div>
-                <div class="realm-info">
-                    <h1 id="realm-name">Království Aldoria</h1>
-                    <span id="realm-tier">Úroveň Panství: <strong>Vévodství (Úr. 1)</strong></span>
+        <!-- Clean Modern 4X Strategy HUD -->
+        <header id="civ-hud">
+            <div class="tribe-badge">
+                <div class="tribe-crest" id="tribe-crest">🔷</div>
+                <div class="tribe-meta">
+                    <div class="tribe-name" id="tribe-name">Impérium Solaria</div>
+                    <div class="turn-counter">TAH <span id="hud-turn-num">1</span> / 30 • Skóre: <strong id="hud-score">120</strong></div>
                 </div>
             </div>
 
-            <!-- Complex Multi-Tier Resource Economy -->
-            <div class="economy-bar">
-                <div class="res-stat" title="Volní dělníci a celková kapacita poddaných">
-                    <span class="icon">👥</span>
-                    <div class="res-vals">
-                        <span class="lbl">PODDANÍ</span>
-                        <span class="num" id="stat-pop">12 / 20</span>
-                    </div>
+            <div class="economy-cluster">
+                <div class="star-pill" title="Hvězdy - univerzální produkce tvých měst pro výzkum a výcvik">
+                    <span class="icon">⭐</span>
+                    <span class="stars-val" id="hud-stars">10</span>
+                    <span class="stars-income" id="hud-income">+4/kolo</span>
                 </div>
-
-                <div class="res-stat" title="Dřevo - základní stavební materiál z pil a lesů">
-                    <span class="icon">🪵</span>
-                    <div class="res-vals">
-                        <span class="lbl">DŘEVO</span>
-                        <span class="num" id="stat-wood">450</span>
-                        <span class="rate" id="rate-wood">+18/m</span>
-                    </div>
-                </div>
-
-                <div class="res-stat" title="Kámen - na hradby, věže a pokročilé budovy">
-                    <span class="icon">🪨</span>
-                    <div class="res-vals">
-                        <span class="lbl">KÁMEN</span>
-                        <span class="num" id="stat-stone">300</span>
-                        <span class="rate" id="rate-stone">+12/m</span>
-                    </div>
-                </div>
-
-                <div class="res-stat" title="Železo - kování zbraní a brnění pro armádu">
-                    <span class="icon">⛓️</span>
-                    <div class="res-vals">
-                        <span class="lbl">ŽELEZO</span>
-                        <span class="num" id="stat-iron">150</span>
-                        <span class="rate" id="rate-iron">+6/m</span>
-                    </div>
-                </div>
-
-                <div class="res-stat" title="Obilí &amp; Chléb - obživa pro poddané (při nedostatku lidé hladoví!)">
-                    <span class="icon">🌾</span>
-                    <div class="res-vals">
-                        <span class="lbl">JÍDLO</span>
-                        <span class="num" id="stat-food">280</span>
-                        <span class="rate" id="rate-food">+24/m</span>
-                    </div>
-                </div>
-
-                <div class="res-stat gold-stat" title="Zlaté koruny - daně z domů a obchodní zisky">
-                    <span class="icon">🪙</span>
-                    <div class="res-vals">
-                        <span class="lbl">POKLADNA</span>
-                        <span class="num" id="stat-gold">650</span>
-                        <span class="rate" id="rate-gold">+35/m</span>
-                    </div>
+                <div class="cities-pill" title="Počet kontrolovaných měst">
+                    <span class="icon">🏛️</span>
+                    <span id="hud-cities-count">1</span>
                 </div>
             </div>
 
-            <div class="hud-controls">
-                <button class="icon-btn" id="btn-speed" title="Rychlost simulace (1x / 2x / 5x)">⏩ 1x</button>
-                <button class="icon-btn" id="btn-audio" title="Zvuky">🔊</button>
+            <div class="hud-buttons">
+                <button class="hud-btn tech-btn" id="btn-open-tech" title="Otevřít Strom Technologií">
+                    🔬 Strom Technologií
+                </button>
+                <button class="hud-btn end-turn-btn" id="btn-end-turn" title="Ukončit tah a nechat hrát soupeře">
+                    <span>UKONČIT TAH</span> ⏳
+                </button>
             </div>
         </header>
 
-        <!-- Bottom Construction & Management Dock -->
-        <footer id="strategy-dock">
-            <div class="dock-category-tabs">
-                <button class="cat-btn active" data-cat="economy">🌾 Ekonomika &amp; Suroviny</button>
-                <button class="cat-btn" data-cat="housing">🏡 Město &amp; Obyvatelé</button>
-                <button class="cat-btn" data-cat="military">⚔️ Vojenské &amp; Hradby</button>
-                <button class="cat-btn" data-cat="roads">🛤️ Cesty &amp; Bourání</button>
+        <!-- Selected Entity Action Dock (Dynamic Unit or City Controls) -->
+        <div id="entity-dock" class="dock-panel hidden">
+            <div class="dock-header">
+                <div class="dock-title-group">
+                    <span class="dock-icon" id="dock-icon">🗡️</span>
+                    <div>
+                        <h3 id="dock-title">Válečník</h3>
+                        <span class="dock-sub" id="dock-subtitle">Pěší průzkumná jednotka (HP: 10/10)</span>
+                    </div>
+                </div>
+                <button class="dock-close-btn" id="btn-close-dock">&times;</button>
             </div>
+            <div class="dock-actions" id="dock-actions-shelf">
+                <!-- Buttons injected via JavaScript -->
+            </div>
+        </div>
 
-            <div class="build-cards-shelf" id="build-shelf">
-                <!-- Dynamically populated build cards based on category -->
+        <!-- Tech Tree Modal (Polytopia Style Clean Nodes) -->
+        <div id="tech-modal" class="modal-backdrop hidden">
+            <div class="modal-card">
+                <div class="modal-head">
+                    <h2>🔬 STROM TECHNOLOGIÍ</h2>
+                    <button class="close-x" id="btn-close-tech">&times;</button>
+                </div>
+                <div class="tech-grid" id="tech-grid">
+                    <!-- Injected via JavaScript -->
+                </div>
             </div>
-        </footer>
+        </div>
 
-        <!-- Active Selected Building / Tile Inspector Modal Panel -->
-        <aside id="inspector-panel" class="inspector-drawer hidden">
-            <div class="inspector-header">
-                <h3 id="insp-title">Královská Radnice</h3>
-                <button class="btn-close" id="btn-close-insp">&times;</button>
+        <!-- Victory / Defeat Modal Screen -->
+        <div id="game-over-modal" class="modal-backdrop hidden">
+            <div class="modal-card victory-card">
+                <div class="vic-icon" id="vic-icon">🏆</div>
+                <h1 id="vic-title">SLAVNÉ VÍTĚZSTVÍ!</h1>
+                <p id="vic-desc">Tvá civilizace ovládla známý svět a rozdrtila všechny rivaly.</p>
+                <div class="final-score">Konečné skóre: <strong id="vic-score">2,450</strong></div>
+                <button class="hud-btn end-turn-btn" id="btn-restart-game">Hrát Novou Partii</button>
             </div>
-            <div class="inspector-content" id="insp-content">
-                <!-- Injected via JavaScript -->
-            </div>
-        </aside>
+        </div>
 
-        <!-- Toast Notifications -->
-        <div id="toast-deck"></div>
+        <!-- Clean Animated Toasts -->
+        <div id="toast-container"></div>
     </div>
 
     <!-- Main Game Script -->
