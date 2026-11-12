@@ -1003,6 +1003,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (q.includes("i am iron man") || q.includes("jsem iron man")) {
             return "Vskutku, pane. A já jsem váš poněkud sarkastický operační systém.";
         }
+        if (q.includes("garmin") || q.includes("video speichern")) {
+            return "Jawohl, pane! Palubní kamera Stark Industries ukládá posledních 30 sekund záznamu.";
+        }
         if (q.includes("kolik je hodin") || q.includes("čas")) {
             return `Aktuální čas je ${new Date().toLocaleTimeString("cs-CZ")}, pane.`;
         }
