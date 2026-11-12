@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=10.0">
+    <link rel="stylesheet" href="style.css?v=11.0">
     <!-- Phaser 3.80.1 Engine -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
@@ -33,7 +33,37 @@
                             🤖 Hra proti AI
                         </button>
                         <button type="button" class="mode-btn" id="btn-mode-passplay" onclick="selectGameMode('passplay')">
-                            👥 Hotseat Multiplayer (Pass & Play)
+                            👥 Hotseat Multiplayer
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mode-select-row">
+                    <span class="mode-label">VELIKOST SVĚTA:</span>
+                    <div class="mode-toggle">
+                        <button type="button" class="mode-btn" id="btn-map-standard" onclick="selectMapSize('standard')">
+                            🗺️ Standardní (18×18)
+                        </button>
+                        <button type="button" class="mode-btn active" id="btn-map-continents" onclick="selectMapSize('continents')">
+                            🌊 Oceán & Kontinenty (24×24)
+                        </button>
+                        <button type="button" class="mode-btn" id="btn-map-huge" onclick="selectMapSize('huge')">
+                            🌍 Obrovský Svět (28×28)
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mode-select-row" id="row-difficulty">
+                    <span class="mode-label">OBTÍŽNOST AI:</span>
+                    <div class="mode-toggle">
+                        <button type="button" class="mode-btn" id="btn-diff-normal" onclick="selectAIDifficulty('normal')">
+                            ⚔️ Válečník (Normální)
+                        </button>
+                        <button type="button" class="mode-btn active" id="btn-diff-hard" onclick="selectAIDifficulty('hard')">
+                            🔥 Vojevůdce (Těžká)
+                        </button>
+                        <button type="button" class="mode-btn" id="btn-diff-deity" onclick="selectAIDifficulty('deity')">
+                            💀 Božská (Brutální)
                         </button>
                     </div>
                 </div>
@@ -185,6 +215,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="game.js?v=10.0"></script>
+    <script src="game.js?v=11.0"></script>
 </body>
 </html>

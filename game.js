@@ -69,7 +69,9 @@ const G = {
             techs: ['archery']
         }
     },
-    gridSize: 16,
+    gridSize: 24,
+    mapSize: 'continents',
+    aiDifficulty: 'hard',
     selectedEntity: null,
     gameOver: false,
     musicEnabled: true,
@@ -543,6 +545,30 @@ function generatePolytopiaTextures(scene) {
         gfx.generateTexture('ballistic_boulder', 10, 10);
     }
 
+    // 6. MOŘSKÉ PRVKY (Hejna ryb a Ztroskotané galeony)
+    if (!scene.textures.exists('feat_fish')) {
+        gfx.clear();
+        gfx.fillStyle(0x38bdf8, 0.95);
+        gfx.fillEllipse(16, 12, 10, 5);
+        gfx.fillTriangle(6, 12, 1, 6, 1, 18);
+        gfx.fillStyle(0xe0f2fe, 1);
+        gfx.fillCircle(20, 10, 1.5);
+        gfx.lineStyle(1, 0x0284c7, 0.8);
+        gfx.strokeEllipse(16, 12, 10, 5);
+        gfx.generateTexture('feat_fish', 32, 24);
+    }
+    if (!scene.textures.exists('feat_shipwreck')) {
+        gfx.clear();
+        gfx.fillStyle(0x451a03, 1);
+        gfx.beginPath(); gfx.moveTo(4, 22); gfx.lineTo(32, 22); gfx.lineTo(26, 28); gfx.lineTo(8, 28); gfx.closePath(); gfx.fillPath();
+        gfx.fillStyle(0x78350f, 1);
+        gfx.fillRect(16, 6, 3, 16);
+        gfx.fillRect(10, 10, 15, 2);
+        gfx.fillStyle(0xf8fafc, 0.7);
+        gfx.fillTriangle(18, 8, 18, 18, 28, 14);
+        gfx.generateTexture('feat_shipwreck', 36, 32);
+    }
+
     gfx.destroy();
 }
 
@@ -613,35 +639,75 @@ class PolytropiaScene extends Phaser.Scene {
         this.map = [];
         this.fog = [];
 
-        // 4 Biome distribution for the 4 Factions
-        for (let gx = 0; gx < G.gridSize; gx++) {
+        const N = G.gridSize || 24;
+        const mid = N / 2;
+        // Šířka centrálního oceánského průlivu (odděluje kontinenty vodou)
+        const oceanHalf = Math.max(2, Math.floor(N * 0.12));
+
+        for (let gx = 0; gx < N; gx++) {
             this.map[gx] = [];
             this.fog[gx] = [];
-            for (let gy = 0; gy < G.gridSize; gy++) {
+            for (let gy = 0; gy < N; gy++) {
                 let biome = 'plain';
-                const distToCenter = Math.hypot(gx - 7.5, gy - 7.5);
 
-                // Water rivers / lakes in center and oceans on edges
-                if (distToCenter > 9.5 || (distToCenter < 2.5 && (gx + gy) % 2 === 0)) {
+                const inXChannel = Math.abs(gx - (mid - 0.5)) <= oceanHalf;
+                const inYChannel = Math.abs(gy - (mid - 0.5)) <= oceanHalf;
+                const distToCenter = Math.hypot(gx - (mid - 0.5), gy - (mid - 0.5));
+
+                // Vnější pobřežní oceán kolem okrajů mapy
+                const distToEdge = Math.min(gx, gy, N - 1 - gx, N - 1 - gy);
+                const isOuterOcean = distToEdge === 0 || (distToEdge === 1 && Math.random() < 0.5);
+
+                // Centrální oceánský průliv tvořící 4 oddělené kontinenty
+                if (isOuterOcean || inXChannel || inYChannel || distToCenter > (N * 0.68)) {
                     biome = 'water';
                 } else {
+                    // Pevnina daného kontinentu
                     const r = Math.random();
-                    if (gx < 8 && gy >= 8) {
-                        biome = r < 0.45 ? 'mountain' : (r < 0.75 ? 'plain' : 'forest');
-                    } else if (gx >= 8 && gy < 8) {
-                        biome = r < 0.45 ? 'forest' : (r < 0.75 ? 'plain' : 'mountain');
-                    } else if (gx >= 8 && gy >= 8) {
-                        biome = r < 0.35 ? 'water' : (r < 0.75 ? 'plain' : 'forest');
-                    } else {
+                    if (gx < mid && gy < mid) {
+                        // Severozápad: Impérium Solaria - úrodné louky, pole a lesy
                         biome = r < 0.55 ? 'plain' : (r < 0.85 ? 'forest' : 'mountain');
+                    } else if (gx < mid && gy >= mid) {
+                        // Jihozápad: Khar-Durn - sopečné hory, kaňony a kamenná pole
+                        biome = r < 0.50 ? 'mountain' : (r < 0.80 ? 'plain' : 'forest');
+                    } else if (gx >= mid && gy < mid) {
+                        // Severovýchod: Sylvaen - starobylé hvozdy a posvátné mýtiny
+                        biome = r < 0.55 ? 'forest' : (r < 0.85 ? 'plain' : 'mountain');
+                    } else {
+                        // Jihovýchod: Aquaria - ostrovy, jezera, atoly a pobřeží
+                        biome = r < 0.40 ? 'water' : (r < 0.75 ? 'plain' : 'forest');
                     }
                 }
 
-                // Natural Wonders & Ancient Ruins
-                const hasRuins = (gx === 4 && gy === 4) || (gx === 11 && gy === 11) || (gx === 5 && gy === 10);
-                const isDiamond = (gx === 8 && gy === 3);
-                const isGrove = (gx === 3 && gy === 8);
-                const isTribe = (gx === 6 && gy === 6) || (gx === 10 && gy === 6);
+                // Tajemné ostrovy uprostřed centrálního oceánu!
+                const midF = Math.floor(mid);
+                const isCenterIsland = Math.abs(gx - midF) <= 1 && Math.abs(gy - midF) <= 1 && !(gx === midF - 1 && gy === midF - 1);
+                const isNorthAtoll = (gx === midF && gy === Math.floor(mid * 0.45));
+                const isSouthAtoll = (gx === midF && gy === Math.floor(mid * 1.55));
+                const isWestAtoll = (gx === Math.floor(mid * 0.45) && gy === midF);
+                const isEastAtoll = (gx === Math.floor(mid * 1.55) && gy === midF);
+
+                if (isCenterIsland || isNorthAtoll || isSouthAtoll || isWestAtoll || isEastAtoll) {
+                    biome = 'plain';
+                }
+
+                // Divy světa a ruiny na tajemných ostrovech a kontinentech
+                const isDiamond = (gx === midF && gy === midF);
+                const isGrove = isNorthAtoll;
+                const hasRuins = isSouthAtoll || isWestAtoll || (gx === 4 && gy === 4) || (gx === N - 5 && gy === N - 5);
+                const isTribe = isEastAtoll || (gx === 4 && gy === N - 5) || (gx === N - 5 && gy === 4);
+
+                // Mořské prvky v oceánu: hejna ryb a ztroskotané galeony!
+                let hasFish = false;
+                let hasShipwreck = false;
+                if (biome === 'water' && !isOuterOcean) {
+                    const waterRand = Math.random();
+                    if (waterRand < 0.08) {
+                        hasFish = true;
+                    } else if (waterRand < 0.12 && distToCenter > 3) {
+                        hasShipwreck = true;
+                    }
+                }
 
                 this.map[gx][gy] = {
                     gx, gy,
@@ -650,6 +716,8 @@ class PolytropiaScene extends Phaser.Scene {
                     isDiamond,
                     isGrove,
                     isTribe,
+                    hasFish,
+                    hasShipwreck,
                     hasFarm: false,
                     hasMine: false
                 };
@@ -658,12 +726,17 @@ class PolytropiaScene extends Phaser.Scene {
             }
         }
 
-        // 4 Civilizations Starting Cities
+        // 4 Civilizace a jejich hlavní města na vlastních kontinentech
+        const pad = 3;
+        const far = N - 4;
+        const diff = G.aiDifficulty || 'hard';
+        const aiIncome = diff === 'normal' ? 3 : (diff === 'hard' ? 5 : 7);
+
         this.cities = [
-            { id: 1, name: 'Solaria City', owner: 'solaria', level: 1, progress: 0, progressMax: 2, income: 4, gx: 2, gy: 2, hasWalls: false, isCapital: true },
-            { id: 2, name: 'Khar-Citadel', owner: 'khardurn', level: 1, progress: 0, progressMax: 2, income: 3, gx: 2, gy: 13, hasWalls: false, isCapital: true },
-            { id: 3, name: 'Aqua-Palace', owner: 'aquaria', level: 1, progress: 0, progressMax: 2, income: 3, gx: 13, gy: 13, hasWalls: false, isCapital: true },
-            { id: 4, name: 'Sylva-Haven', owner: 'sylvaen', level: 1, progress: 0, progressMax: 2, income: 3, gx: 13, gy: 2, hasWalls: false, isCapital: true }
+            { id: 1, name: 'Solaria City', owner: 'solaria', level: 1, progress: 0, progressMax: 2, income: 4, gx: pad, gy: pad, hasWalls: (diff === 'deity'), isCapital: true },
+            { id: 2, name: 'Khar-Citadel', owner: 'khardurn', level: 1, progress: 0, progressMax: 2, income: aiIncome, gx: pad, gy: far, hasWalls: (diff !== 'normal'), isCapital: true },
+            { id: 3, name: 'Aqua-Palace', owner: 'aquaria', level: 1, progress: 0, progressMax: 2, income: aiIncome, gx: far, gy: far, hasWalls: (diff !== 'normal'), isCapital: true },
+            { id: 4, name: 'Sylva-Haven', owner: 'sylvaen', level: 1, progress: 0, progressMax: 2, income: aiIncome, gx: far, gy: pad, hasWalls: (diff !== 'normal'), isCapital: true }
         ];
 
         this.cities.forEach(c => {
@@ -674,8 +747,8 @@ class PolytropiaScene extends Phaser.Scene {
                 for (let dy = -1; dy <= 1; dy++) {
                     const nx = c.gx + dx;
                     const ny = c.gy + dy;
-                    if (nx >= 0 && nx < G.gridSize && ny >= 0 && ny < G.gridSize) {
-                        if (this.map[nx][ny].biome === 'water') {
+                    if (nx >= 0 && nx < N && ny >= 0 && ny < N) {
+                        if (c.owner !== 'aquaria' && this.map[nx][ny].biome === 'water') {
                             this.map[nx][ny].biome = 'plain';
                         }
                     }
@@ -686,24 +759,41 @@ class PolytropiaScene extends Phaser.Scene {
             for (let mo of mOffsets) {
                 const mx = c.gx + mo.dx;
                 const my = c.gy + mo.dy;
-                if (mx >= 0 && mx < G.gridSize && my >= 0 && my < G.gridSize) {
+                if (mx >= 0 && mx < N && my >= 0 && my < N) {
                     this.map[mx][my].biome = 'mountain';
                     break;
                 }
             }
-            // A políčko pro farmu přímo u města
-            const fx = c.gx + 1; const fy = c.gy;
-            if (fx >= 0 && fx < G.gridSize && fy >= 0 && fy < G.gridSize) {
+            // Políčko pro farmu přímo u města
+            const fx = c.gx + (c.gx < mid ? 1 : -1); const fy = c.gy;
+            if (fx >= 0 && fx < N && fy >= 0 && fy < N) {
                 this.map[fx][fy].biome = 'plain';
+            }
+            // Pro Aquarii zaruč přímé vodní pole pro přístav
+            if (c.owner === 'aquaria') {
+                const wx = c.gx - 1; const wy = c.gy;
+                if (wx >= 0 && wx < N && wy >= 0 && wy < N) {
+                    this.map[wx][wy].biome = 'water';
+                }
             }
         });
 
-        // Starting units for each faction (vedle města, aby bylo město hned volné k verbování)
+        // Starting units for each faction (Posádka ve městě + Průzkumník/Bojovník vedle města)
         this.units = [
-            { id: 101, owner: 'solaria', type: 'warrior', gx: 3, gy: 2, hp: 10, maxHp: 10, moved: false, attacked: false, kills: 0, isVeteran: false },
-            { id: 201, owner: 'khardurn', type: 'warrior', gx: 3, gy: 13, hp: 10, maxHp: 10, moved: false, attacked: false, kills: 0, isVeteran: false },
-            { id: 301, owner: 'aquaria', type: 'warrior', gx: 12, gy: 13, hp: 10, maxHp: 10, moved: false, attacked: false, kills: 0, isVeteran: false },
-            { id: 401, owner: 'sylvaen', type: 'warrior', gx: 12, gy: 2, hp: 10, maxHp: 10, moved: false, attacked: false, kills: 0, isVeteran: false }
+            // Solaria (Hráč)
+            { id: 101, owner: 'solaria', type: 'warrior', gx: pad + 1, gy: pad, hp: 10, maxHp: 10, moved: false, attacked: false, kills: 0, isVeteran: false },
+
+            // Khar-Durn (AI) - Posádka ve městě + průzkumník venku
+            { id: 201, owner: 'khardurn', type: 'warrior', gx: pad, gy: far, hp: 10, maxHp: 10, moved: false, attacked: false, kills: 0, isVeteran: false },
+            { id: 202, owner: 'khardurn', type: (diff === 'deity' ? 'knight' : 'warrior'), gx: pad + 1, gy: far, hp: (diff === 'deity' ? 14 : 10), maxHp: (diff === 'deity' ? 14 : 10), moved: false, attacked: false, kills: 0, isVeteran: false },
+
+            // Aquaria (AI) - Posádka ve městě + Válečný člun na vodě!
+            { id: 301, owner: 'aquaria', type: 'warrior', gx: far, gy: far, hp: 10, maxHp: 10, moved: false, attacked: false, kills: 0, isVeteran: false },
+            { id: 302, owner: 'aquaria', type: 'boat', gx: far - 1, gy: far, hp: 12, maxHp: 12, moved: false, attacked: false, kills: 0, isVeteran: false },
+
+            // Sylvaen (AI) - Posádka ve městě + Lučištník venku!
+            { id: 401, owner: 'sylvaen', type: 'warrior', gx: far, gy: pad, hp: 10, maxHp: 10, moved: false, attacked: false, kills: 0, isVeteran: false },
+            { id: 402, owner: 'sylvaen', type: 'archer', gx: far - 1, gy: pad, hp: 8, maxHp: 8, moved: false, attacked: false, kills: 0, isVeteran: false }
         ];
     }
 
@@ -767,6 +857,14 @@ class PolytropiaScene extends Phaser.Scene {
                     const r = this.add.image(sx, sy - 4, 'feat_ruins').setOrigin(0.5, 0.7);
                     spr.ruinsSprite = r;
                     this.featureLayer.add(r);
+                } else if (data.hasShipwreck) {
+                    const sw = this.add.image(sx, sy - 2, 'feat_shipwreck').setOrigin(0.5, 0.6);
+                    spr.shipwreckSprite = sw;
+                    this.featureLayer.add(sw);
+                } else if (data.hasFish) {
+                    const fsh = this.add.image(sx, sy, 'feat_fish').setOrigin(0.5, 0.5);
+                    spr.fishSprite = fsh;
+                    this.featureLayer.add(fsh);
                 }
                 if (data.hasFarm) {
                     const f = this.add.image(sx, sy, 'feat_farm').setOrigin(0.5, 0.5);
@@ -1222,6 +1320,19 @@ class PolytropiaScene extends Phaser.Scene {
             G.factions[G.activeFaction].stars += 10;
             G.score += 60;
             showToast('🛖 DOMORODÝ KMEN VÁS PŘIVÍTAL! Daroval +10 ⭐ Hvězd na rozvoj.');
+            updateHUD();
+        }
+
+        // Shipwreck Encounter (Nález na moři)
+        if (tile.hasShipwreck && unit.owner === G.activeFaction) {
+            tile.hasShipwreck = false;
+            if (this.tileSprites[targetX][targetY] && this.tileSprites[targetX][targetY].shipwreckSprite) {
+                this.tileSprites[targetX][targetY].shipwreckSprite.destroy();
+            }
+            SFX.play('level_up');
+            G.factions[G.activeFaction].stars += 15;
+            G.score += 70;
+            showToast('⚓ PROZKOUDÁNA ZTROSKOTANÁ GALEONA! Nalezen námořní poklad +15 ⭐ Hvězd.');
             updateHUD();
         }
     }
@@ -2530,6 +2641,17 @@ function getFactionIncome(factionKey) {
     if (scene && scene.cities) {
         scene.cities.filter(c => c.owner === factionKey).forEach(c => {
             total += (c.income || 0);
+            // Mořský rybolov: +1 ⭐ z každého hejna ryb sousedícího s městem
+            if (scene.map) {
+                const offsets = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }, { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }];
+                offsets.forEach(off => {
+                    const fx = c.gx + off.dx;
+                    const fy = c.gy + off.dy;
+                    if (fx >= 0 && fx < G.gridSize && fy >= 0 && fy < G.gridSize) {
+                        if (scene.map[fx][fy].hasFish) total += 1;
+                    }
+                });
+            }
         });
     } else {
         total = fac.income || 4;
@@ -2726,10 +2848,10 @@ window.dismissHotseatSplash = function() {
 
 // --- COMPREHENSIVE 4X AI SYSTEM ---
 const AI_TECH_PATHS = {
-    khardurn: ['smithing', 'fortification', 'farming', 'archery', 'siege', 'roads', 'philosophy', 'sailing', 'navigation', 'stargate'],
+    khardurn: ['sailing', 'smithing', 'fortification', 'farming', 'archery', 'siege', 'roads', 'philosophy', 'navigation', 'stargate'],
     aquaria: ['navigation', 'farming', 'archery', 'roads', 'mining', 'smithing', 'fortification', 'siege', 'philosophy', 'stargate'],
-    sylvaen: ['farming', 'mining', 'smithing', 'siege', 'roads', 'fortification', 'philosophy', 'sailing', 'navigation', 'stargate'],
-    solaria: ['roads', 'mining', 'fortification', 'smithing', 'archery', 'siege', 'philosophy', 'sailing', 'navigation', 'stargate']
+    sylvaen: ['sailing', 'farming', 'archery', 'mining', 'smithing', 'siege', 'roads', 'fortification', 'philosophy', 'navigation', 'stargate'],
+    solaria: ['sailing', 'roads', 'mining', 'fortification', 'smithing', 'archery', 'siege', 'philosophy', 'navigation', 'stargate']
 };
 
 function executeAIFactionTurn(scene, fKey) {
@@ -2739,6 +2861,10 @@ function executeAIFactionTurn(scene, fKey) {
     const aiCities = scene.cities.filter(c => c.owner === fKey);
     // Pokud frakce již nemá žádná města, nemůže pokračovat
     if (aiCities.length === 0) return;
+
+    // AI obtížnostní bonusy (přísun ⭐ na začátku každého tahu)
+    const diffBonus = (G.aiDifficulty === 'deity' ? 4 : (G.aiDifficulty === 'hard' ? 2 : 0));
+    faction.stars += diffBonus;
 
     const aiUnits = scene.units.filter(u => u.owner === fKey);
 
@@ -2942,6 +3068,11 @@ function aiExecuteRecruitment(scene, fKey, faction) {
 
         // Pozemní jednotky
         if (landSpawnTile) {
+            // Osadník pro expanzi impéria (priorita pro stavbu nových měst)
+            const maxCitiesForAI = (G.aiDifficulty === 'deity' ? 4 : (G.aiDifficulty === 'hard' ? 3 : 2));
+            if (aiCities.length < maxCitiesForAI && faction.stars >= 7 && !scene.units.some(u => u.owner === fKey && u.type === 'settler')) {
+                candidates.push({ type: 'settler', cost: 7, isWater: false, priority: 8.5 });
+            }
             if (faction.techs.includes('siege') && faction.stars >= 9) {
                 candidates.push({ type: 'catapult', cost: 9, isWater: false, priority: fKey === 'sylvaen' ? 9 : 7 });
             }
@@ -3011,6 +3142,104 @@ function aiExecuteTactics(scene, fKey, faction) {
         const atkRange = uType.range;
         const moveDist = uType.move;
         const canSail = faction.techs.includes('sailing') || u.type === 'boat' || u.type === 'battleship';
+
+        // 0. SPECIÁLNÍ LOGIKA PRO OSADNÍKA (Založení města nebo přesun k úrodnému území)
+        if (u.type === 'settler') {
+            const currentTile = scene.map[u.gx][u.gy];
+            const hasCityHere = scene.cities.some(c => c.gx === u.gx && c.gy === u.gy);
+            const distToNearestCity = scene.cities.reduce((minD, c) => Math.min(minD, Math.max(Math.abs(c.gx - u.gx), Math.abs(c.gy - u.gy))), 999);
+
+            // Pokud stojí na vhodném poli vzdáleném alespoň 3 políčka od všech měst, založ nové město!
+            if (!hasCityHere && distToNearestCity >= 3 && currentTile.biome !== 'water' && currentTile.biome !== 'mountain') {
+                const newCity = {
+                    id: Date.now() + Math.random(),
+                    name: `${faction.name.split(' ')[0]} Kolonie ${aiCities.length + 1}`,
+                    owner: fKey,
+                    gx: u.gx,
+                    gy: u.gy,
+                    level: 1,
+                    progress: 0,
+                    progressMax: 2,
+                    income: 3,
+                    hasWalls: false
+                };
+                scene.cities.push(newCity);
+                const uIdx = scene.units.indexOf(u);
+                if (uIdx !== -1) scene.units.splice(uIdx, 1);
+                scene.renderCities();
+                scene.renderUnits();
+                return;
+            }
+
+            // Hledání nejlepšího volného pole pro novou kolonii (vzdálenost >= 3 od všech měst)
+            let bestTile = null;
+            let bestDist = 999;
+            for (let x = 0; x < G.gridSize; x++) {
+                for (let y = 0; y < G.gridSize; y++) {
+                    const t = scene.map[x][y];
+                    if (t.biome === 'water' || t.biome === 'mountain') continue;
+                    const dAll = scene.cities.reduce((minD, c) => Math.min(minD, Math.max(Math.abs(c.gx - x), Math.abs(c.gy - y))), 999);
+                    if (dAll >= 3) {
+                        const dMe = Math.hypot(x - u.gx, y - u.gy);
+                        if (dMe < bestDist) {
+                            bestDist = dMe;
+                            bestTile = { x, y };
+                        }
+                    }
+                }
+            }
+
+            if (bestTile && !u.moved) {
+                // Posun osadníka směrem k vytipovanému místu
+                let bestStepX = u.gx;
+                let bestStepY = u.gy;
+                let minStepD = Math.hypot(bestTile.x - u.gx, bestTile.y - u.gy);
+                const offsets = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }];
+                offsets.forEach(off => {
+                    const nx = u.gx + off.dx;
+                    const ny = u.gy + off.dy;
+                    if (nx >= 0 && nx < G.gridSize && ny >= 0 && ny < G.gridSize) {
+                        const tile = scene.map[nx][ny];
+                        const occ = scene.units.some(ou => ou.gx === nx && ou.gy === ny);
+                        if (!occ && (tile.biome !== 'water' || canSail)) {
+                            const d = Math.hypot(bestTile.x - nx, bestTile.y - ny);
+                            if (d < minStepD) {
+                                minStepD = d;
+                                bestStepX = nx;
+                                bestStepY = ny;
+                            }
+                        }
+                    }
+                });
+                if (bestStepX !== u.gx || bestStepY !== u.gy) {
+                    u.gx = bestStepX;
+                    u.gy = bestStepY;
+                    u.moved = true;
+                    // Zkontroluj, zda už na novém poli může rovnou založit město
+                    const newDistToCity = scene.cities.reduce((minD, c) => Math.min(minD, Math.max(Math.abs(c.gx - u.gx), Math.abs(c.gy - u.gy))), 999);
+                    if (newDistToCity >= 3 && scene.map[u.gx][u.gy].biome !== 'water' && scene.map[u.gx][u.gy].biome !== 'mountain') {
+                        const newCity = {
+                            id: Date.now() + Math.random(),
+                            name: `${faction.name.split(' ')[0]} Kolonie ${aiCities.length + 1}`,
+                            owner: fKey,
+                            gx: u.gx,
+                            gy: u.gy,
+                            level: 1,
+                            progress: 0,
+                            progressMax: 2,
+                            income: 3,
+                            hasWalls: false
+                        };
+                        scene.cities.push(newCity);
+                        const uIdx = scene.units.indexOf(u);
+                        if (uIdx !== -1) scene.units.splice(uIdx, 1);
+                        scene.renderCities();
+                        scene.renderUnits();
+                    }
+                }
+            }
+            return;
+        }
 
         // 1. ZRANĚNÉ JEDNOTKY (pod 50% HP) SE LÉČÍ / ODPOČÍVAJÍ
         if (u.hp < u.maxHp * 0.5) {
@@ -3367,11 +3596,74 @@ window.selectGameMode = function(mode) {
         btnSingle.classList.toggle('active', mode === 'single');
         btnPass.classList.toggle('active', mode === 'passplay');
     }
+    const rowDiff = document.getElementById('row-difficulty');
+    if (rowDiff) {
+        rowDiff.style.display = (mode === 'passplay') ? 'none' : 'flex';
+    }
     if (mode === 'passplay' && G.passPlayFactions.length < 2) {
         G.passPlayFactions = ['solaria', 'khardurn'];
     }
     SFX.play('select');
     renderFactionPicker();
+};
+
+window.selectMapSize = function(size) {
+    G.mapSize = size;
+    if (size === 'standard') G.gridSize = 18;
+    else if (size === 'continents') G.gridSize = 24;
+    else if (size === 'huge') G.gridSize = 28;
+
+    ['standard', 'continents', 'huge'].forEach(s => {
+        const btn = document.getElementById(`btn-map-${s}`);
+        if (btn) btn.classList.toggle('active', s === size);
+    });
+
+    G.factionExplored = {};
+
+    const scene = game.scene.getScene('PolytropiaScene');
+    if (scene) {
+        scene.initWorldMap();
+        scene.renderMapTiles();
+        scene.renderRoads();
+        scene.renderCities();
+        scene.renderUnits();
+        scene.renderFogOfWar();
+        const startCity = scene.cities.find(c => c.owner === G.activeFaction) || scene.cities[0];
+        if (startCity) {
+            scene.revealFogAround(startCity.gx, startCity.gy, 3);
+            scene.selectCity(startCity);
+            const targetSx = (startCity.gx - startCity.gy) * (scene.tileW / 2);
+            const targetSy = (startCity.gx + startCity.gy) * (scene.tileH / 2);
+            scene.world.setPosition(scene.scale.width / 2 - targetSx, scene.scale.height / 3 - targetSy);
+        }
+        renderMinimap();
+    }
+    SFX.play('select');
+};
+
+window.selectAIDifficulty = function(diff) {
+    G.aiDifficulty = diff;
+    ['normal', 'hard', 'deity'].forEach(d => {
+        const btn = document.getElementById(`btn-diff-${d}`);
+        if (btn) btn.classList.toggle('active', d === diff);
+    });
+
+    const scene = game.scene.getScene('PolytropiaScene');
+    if (scene) {
+        scene.initWorldMap();
+        scene.renderMapTiles();
+        scene.renderRoads();
+        scene.renderCities();
+        scene.renderUnits();
+        scene.renderFogOfWar();
+        const startCity = scene.cities.find(c => c.owner === G.activeFaction) || scene.cities[0];
+        if (startCity) {
+            scene.revealFogAround(startCity.gx, startCity.gy, 3);
+            scene.selectCity(startCity);
+        }
+        renderMinimap();
+    }
+    SFX.play('select');
 };
 
 window.confirmStartGame = function() {
