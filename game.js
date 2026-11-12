@@ -1,66 +1,87 @@
 /**
- * Polytropia: Civilizace Hvězd (Tahová 4X Strategie - Enhanced v2.0)
- * Kompletně zrevidováno ve spolupráci s QA agentem.
- * - Opravený targeting a detekce boje (červené pulzující zaměřovače)
- * - Plynulá animace pohybu lerpem/tweenem
- * - Klávesa Enter & Mezerník pro další tah + T pro Tech Tree, Esc pro zavření
- * - Mechanika dobývání měst vstupem jednotky do cizího města
- * - Hornictví (Mining): Zlaté doly na horách kolem města
- * - Oddělené fáze: Pohyb a útok zvlášť (jednotka se může pohnout a hned zaútočit)
+ * Polytropia: Civilizace Hvězd (Tahová 4X Strategie - Expanded v3.0)
+ * Kompletně přepracováno na základě auditu herního designera a playtestera:
+ * 1. Radarová MINIMAPA s klikatelným posunem kamery a real-time trackingem
+ * 2. Posádka města: Banner pro okamžité ovládání jednotky stojící ve městě
+ * 3. Obléhání a útok na města: Eliminace AI a totální nadvláda
+ * 4. Vysoce detailní vektorové textury jednotek (štít, helma, plášť, meč, oř, člun)
+ * 5. Expanze Tech Tree na 7 technologií včetně Mořeplavby (plavba po vodě v loďkách) a Hradeb
+ * 6. Zpomalené, hlubší tempo na 50 tahů se strategickými bonusy terénu
  */
 
 // --- GLOBAL GAME STATE ---
 const G = {
     turn: 1,
-    maxTurns: 30,
+    maxTurns: 50, // Zpomalené tempo pro delší a hlubší partii
     score: 120,
     player: {
         id: 'player',
         name: 'Impérium Solaria',
-        color: 0x38bdf8, // Cyan Blue
-        stars: 12,
+        color: 0x38bdf8,
+        stars: 14,
         unlockedTechs: ['farming']
     },
     ai: {
         id: 'ai',
         name: 'Klan Ocelových Hor',
-        color: 0xef4444, // Crimson Red
-        stars: 10,
+        color: 0xef4444,
+        stars: 12,
         unlockedTechs: ['mining']
     },
-    gridSize: 14,
+    gridSize: 15,
     selectedEntity: null,
     gameOver: false
 };
 
-// --- DATA DEFINITIONS ---
+// --- DATA DEFINITIONS (Expanded 7 Techs) ---
 const TECH_TREE = {
     farming: {
         name: 'Zemědělství',
         icon: '🌾',
         cost: 5,
-        desc: 'Umožňuje kultivovat úrodná pole na obilné farmy (+2 Růst města).',
+        desc: 'Umožňuje stavět farmy na polích (+2 Růst města).',
         unlocked: true
     },
     mining: {
         name: 'Hornictví',
         icon: '⛏️',
         cost: 7,
-        desc: 'Umožňuje hloubit doly na přilehlých horách (+3 Hvězdy/tah pro město).',
+        desc: 'Umožňuje hloubit zlaté doly na horách (+3 Hvězdy/tah).',
         unlocked: false
     },
     archery: {
         name: 'Lukostřelba',
         icon: '🏹',
         cost: 8,
-        desc: 'Odemyká výcvik Lučištníků (střelba na vzdálenost 2 políček bez protiútoku!).',
+        desc: 'Odemyká výcvik Lučištníků (střelba přes 2 políčka bez protiútoku!).',
+        unlocked: false
+    },
+    sailing: {
+        name: 'Mořeplavba',
+        icon: '⛵',
+        cost: 9,
+        desc: 'Jednotky mohou vstupovat na vodu (promění se v loď) a stavět Přístavy (+3 ⭐/tah).',
         unlocked: false
     },
     smithing: {
         name: 'Kovářství',
         icon: '⚔️',
-        cost: 12,
+        cost: 11,
         desc: 'Odemyká Rytíře na koních s vysokým poškozením a pohybem 2 políčka.',
+        unlocked: false
+    },
+    fortification: {
+        name: 'Opevnění & Hradby',
+        icon: '🏰',
+        cost: 10,
+        desc: 'Stavba kamenných hradeb na městech (+3 k obraně jednotky uvnitř).',
+        unlocked: false
+    },
+    diplomacy: {
+        name: 'Diplomacie & Obchod',
+        icon: '📜',
+        cost: 12,
+        desc: 'Zřizuje obchodní cesty mezi městy (+4 Hvězdy/tah).',
         unlocked: false
     }
 };
@@ -69,10 +90,11 @@ const UNIT_TYPES = {
     warrior: { name: 'Válečník', icon: '🗡️', hp: 10, maxHp: 10, atk: 4, def: 2, range: 1, move: 1, cost: 3 },
     archer: { name: 'Lučištník', icon: '🏹', hp: 8, maxHp: 8, atk: 3, def: 1, range: 2, move: 1, cost: 5 },
     knight: { name: 'Rytíř', icon: '🐎', hp: 14, maxHp: 14, atk: 6, def: 3, range: 1, move: 2, cost: 8 },
-    settler: { name: 'Osadník', icon: '⛺', hp: 6, maxHp: 6, atk: 0, def: 1, range: 1, move: 1, cost: 7 }
+    settler: { name: 'Osadník', icon: '⛺', hp: 6, maxHp: 6, atk: 0, def: 1, range: 1, move: 1, cost: 7 },
+    boat: { name: 'Válečný Člun', icon: '⛵', hp: 12, maxHp: 12, atk: 4, def: 2, range: 2, move: 2, cost: 0 }
 };
 
-// --- PROCEDURAL AUDIO (Clean Modern UI Pops, Fanfares & Hits) ---
+// --- PROCEDURAL AUDIO ---
 class CivAudioEngine {
     constructor() {
         this.ctx = null;
@@ -160,11 +182,11 @@ class CivAudioEngine {
 }
 const SFX = new CivAudioEngine();
 
-// --- CLEAN LOW-POLY / VECTOR PROCEDURAL TEXTURES ---
+// --- DETAILNÍ VEKTOROVÉ TEXTURY JEDNOTEK A TERÉNU ---
 function generatePolytopiaTextures(scene) {
     const gfx = scene.make.graphics({ x: 0, y: 0, add: false });
 
-    // 1. Plain Grass Tile (64x32 Isometric Diamond)
+    // 1. Plain Grass Tile
     if (!scene.textures.exists('tile_plain')) {
         gfx.clear();
         gfx.fillStyle(0x4ade80, 1);
@@ -190,7 +212,7 @@ function generatePolytopiaTextures(scene) {
         gfx.generateTexture('tile_forest', 64, 32);
     }
 
-    // 3. Mountain Tile (Stone & Gold)
+    // 3. Mountain Tile
     if (!scene.textures.exists('tile_mountain')) {
         gfx.clear();
         gfx.fillStyle(0x64748b, 1);
@@ -218,7 +240,7 @@ function generatePolytopiaTextures(scene) {
         gfx.generateTexture('tile_water', 64, 32);
     }
 
-    // 5. Cloud / Fog of War Cover
+    // 5. Cloud Fog
     if (!scene.textures.exists('cloud_fog')) {
         gfx.clear();
         gfx.fillStyle(0x1e293b, 1);
@@ -251,65 +273,103 @@ function generatePolytopiaTextures(scene) {
         gfx.generateTexture('entity_city', 64, 48);
     }
 
-    // 8. Warrior Unit
+    // 8. Detailní Válečník (Warrior: Helm, Cape, Round Shield, Sword)
     if (!scene.textures.exists('unit_warrior')) {
         gfx.clear();
-        gfx.fillStyle(0x0284c7, 1);
-        gfx.fillCircle(20, 20, 14);
+        // Shield
+        gfx.fillStyle(0x1e293b, 1);
         gfx.lineStyle(2, 0xffffff, 1);
-        gfx.strokeCircle(20, 20, 14);
-        gfx.lineStyle(3, 0xffffff, 1);
+        gfx.fillCircle(20, 22, 14);
+        gfx.strokeCircle(20, 22, 14);
+        // Armored Helm
+        gfx.fillStyle(0x94a3b8, 1);
+        gfx.fillCircle(20, 14, 8);
+        // Sword Blade with glint
+        gfx.lineStyle(3, 0x38bdf8, 1);
         gfx.beginPath();
-        gfx.moveTo(14, 26); gfx.lineTo(26, 14);
+        gfx.moveTo(12, 30); gfx.lineTo(28, 10);
         gfx.strokePath();
-        gfx.generateTexture('unit_warrior', 40, 40);
+        gfx.generateTexture('unit_warrior', 44, 44);
     }
 
-    // 9. Archer Unit
+    // 9. Detailní Lučištník (Archer: Hood, Recurve Bow, Quiver)
     if (!scene.textures.exists('unit_archer')) {
         gfx.clear();
-        gfx.fillStyle(0x16a34a, 1);
-        gfx.fillCircle(20, 20, 14);
-        gfx.lineStyle(2, 0xffffff, 1);
-        gfx.strokeCircle(20, 20, 14);
+        // Hood
+        gfx.fillStyle(0x15803d, 1);
+        gfx.fillCircle(20, 15, 8);
+        // Quiver on back
+        gfx.fillStyle(0x78350f, 1);
+        gfx.fillRect(26, 10, 6, 16);
+        // Curved Bow
         gfx.lineStyle(2, 0xfacc15, 1);
-        gfx.strokeCircle(20, 20, 8);
-        gfx.generateTexture('unit_archer', 40, 40);
+        gfx.beginPath();
+        gfx.arc(16, 22, 10, -Math.PI / 2, Math.PI / 2);
+        gfx.strokePath();
+        gfx.generateTexture('unit_archer', 44, 44);
     }
 
-    // 10. Knight Unit
+    // 10. Detailní Rytíř (Knight: Armored Charger Steed & Lance)
     if (!scene.textures.exists('unit_knight')) {
         gfx.clear();
-        gfx.fillStyle(0x7c3aed, 1);
-        gfx.fillCircle(20, 20, 15);
-        gfx.lineStyle(2, 0xffffff, 1);
-        gfx.strokeCircle(20, 20, 15);
-        gfx.fillStyle(0xfde047, 1);
-        gfx.fillTriangle(20, 8, 14, 24, 26, 24);
-        gfx.generateTexture('unit_knight', 40, 40);
+        // Steed body
+        gfx.fillStyle(0x78350f, 1);
+        gfx.fillRoundedRect(8, 20, 28, 16, 6);
+        // Steed Head
+        gfx.fillCircle(34, 16, 7);
+        // Knight Rider with plume
+        gfx.fillStyle(0x94a3b8, 1);
+        gfx.fillCircle(18, 12, 6);
+        gfx.fillStyle(0xef4444, 1);
+        gfx.fillTriangle(18, 6, 14, 0, 22, 0); // Plume
+        // Lance
+        gfx.lineStyle(3, 0xfde047, 1);
+        gfx.beginPath();
+        gfx.moveTo(16, 16); gfx.lineTo(38, 4);
+        gfx.strokePath();
+        gfx.generateTexture('unit_knight', 48, 44);
     }
 
-    // 11. Settler Unit
+    // 11. Detailní Osadník (Settler: Covered Pioneer Wagon & Flag)
     if (!scene.textures.exists('unit_settler')) {
         gfx.clear();
-        gfx.fillStyle(0xd97706, 1);
-        gfx.fillCircle(20, 20, 14);
-        gfx.lineStyle(2, 0xffffff, 1);
-        gfx.strokeCircle(20, 20, 14);
-        gfx.fillStyle(0xffffff, 1);
-        gfx.fillTriangle(20, 10, 12, 26, 28, 26);
-        gfx.generateTexture('unit_settler', 40, 40);
+        // Wooden cart
+        gfx.fillStyle(0x78350f, 1);
+        gfx.fillRect(10, 22, 24, 10);
+        // White canvas cover
+        gfx.fillStyle(0xf8fafc, 1);
+        gfx.lineStyle(1, 0x94a3b8, 1);
+        gfx.fillRoundedRect(10, 12, 24, 12, 6);
+        gfx.strokeRoundedRect(10, 12, 24, 12, 6);
+        // Wheels
+        gfx.fillStyle(0x451a03, 1);
+        gfx.fillCircle(14, 32, 4);
+        gfx.fillCircle(30, 32, 4);
+        gfx.generateTexture('unit_settler', 44, 44);
     }
 
-    // 12. Farm Feature Overlay
+    // 12. Válečný Člun (Boat: Hull, Mast, Striped Sail)
+    if (!scene.textures.exists('unit_boat')) {
+        gfx.clear();
+        // Wooden boat hull
+        gfx.fillStyle(0x78350f, 1);
+        gfx.beginPath();
+        gfx.moveTo(6, 26); gfx.lineTo(38, 26); gfx.lineTo(32, 34); gfx.lineTo(12, 34);
+        gfx.closePath();
+        gfx.fillPath();
+        // Sail
+        gfx.fillStyle(0x38bdf8, 1);
+        gfx.fillTriangle(22, 6, 22, 24, 36, 24);
+        gfx.generateTexture('unit_boat', 44, 44);
+    }
+
+    // 13. Features (Farm, Mine, Wall)
     if (!scene.textures.exists('feat_farm')) {
         gfx.clear();
         gfx.fillStyle(0xfacc15, 0.9);
         gfx.fillRoundedRect(14, 6, 36, 20, 4);
         gfx.generateTexture('feat_farm', 64, 32);
     }
-
-    // 12. Mine Feature Overlay
     if (!scene.textures.exists('feat_mine')) {
         gfx.clear();
         gfx.fillStyle(0xf59e0b, 1);
@@ -351,7 +411,12 @@ class PolytropiaScene extends Phaser.Scene {
 
         this.scale.on('resize', (gameSize) => {
             this.world.setPosition(gameSize.width / 2, gameSize.height / 3);
+            renderMinimap();
         });
+
+        // Initialize Minimap Canvas
+        initMinimapInteractions(this);
+        renderMinimap();
     }
 
     initWorldMapData() {
@@ -386,16 +451,16 @@ class PolytropiaScene extends Phaser.Scene {
         }
 
         this.cities = [
-            { id: 1, owner: 'player', name: 'Solaria', gx: 3, gy: 3, level: 1, progress: 0, progressMax: 2, income: 4 },
-            { id: 2, owner: 'ai', name: 'Khar-Durn', gx: 10, gy: 10, level: 1, progress: 0, progressMax: 2, income: 4 }
+            { id: 1, owner: 'player', name: 'Solaria', gx: 3, gy: 3, level: 1, progress: 0, progressMax: 2, income: 4, hasWalls: false },
+            { id: 2, owner: 'ai', name: 'Khar-Durn', gx: 11, gy: 11, level: 1, progress: 0, progressMax: 2, income: 4, hasWalls: false }
         ];
 
         this.map[3][3].biome = 'plain';
-        this.map[10][10].biome = 'plain';
+        this.map[11][11].biome = 'plain';
 
         this.units = [
-            { id: 101, owner: 'player', type: 'warrior', gx: 3, gy: 4, hp: 10, maxHp: 10, moved: false, attacked: false },
-            { id: 201, owner: 'ai', type: 'warrior', gx: 10, gy: 9, hp: 10, maxHp: 10, moved: false, attacked: false }
+            { id: 101, owner: 'player', type: 'warrior', gx: 3, gy: 3, hp: 10, maxHp: 10, moved: false, attacked: false },
+            { id: 201, owner: 'ai', type: 'warrior', gx: 11, gy: 11, hp: 10, maxHp: 10, moved: false, attacked: false }
         ];
     }
 
@@ -441,6 +506,7 @@ class PolytropiaScene extends Phaser.Scene {
             const spr = this.add.image(sx, sy, 'entity_city');
             spr.setOrigin(0.5, 0.7);
             spr.setTint(city.owner === 'player' ? G.player.color : G.ai.color);
+            spr.setDepth(10);
             spr.setInteractive({ cursor: 'pointer' });
             spr.cityData = city;
 
@@ -451,16 +517,20 @@ class PolytropiaScene extends Phaser.Scene {
                 color: '#fff',
                 backgroundColor: city.owner === 'player' ? '#0369a1' : '#991b1b',
                 padding: { x: 5, y: 2 }
-            }).setOrigin(0.5);
+            }).setOrigin(0.5).setDepth(15);
 
             spr.on('pointerdown', (p) => {
                 p.event.stopPropagation();
-                // If a player unit is selected and clicks on an enemy city tile -> attack or move
+                // Pokud hráč vybral svou jednotku a klikne na nepřátelské město -> obléhání / útok!
                 if (G.selectedEntity && G.selectedEntity.type === 'unit' && G.selectedEntity.data.owner === 'player') {
                     const u = G.selectedEntity.data;
-                    const enemyOnCity = this.units.find(en => en.gx === city.gx && en.gy === city.gy && en.owner !== 'player');
-                    if (enemyOnCity) {
-                        this.handleUnitAttack(u, enemyOnCity);
+                    const enemyInCity = this.units.find(en => en.gx === city.gx && en.gy === city.gy && en.owner !== 'player');
+                    if (enemyInCity) {
+                        this.handleUnitAttack(u, enemyInCity);
+                        return;
+                    } else if (city.owner !== 'player') {
+                        // Město je prázdné -> vstup a dobytí!
+                        this.executeMove(u, city.gx, city.gy);
                         return;
                     }
                 }
@@ -480,11 +550,15 @@ class PolytropiaScene extends Phaser.Scene {
 
         this.units.forEach(u => {
             const sx = (u.gx - u.gy) * (this.tileW / 2);
-            const sy = (u.gx + u.gy) * (this.tileH / 2) - 6;
+            // Pokud je jednotka ve městě, offsetneme ji lehce výš a dáme vyšší depth
+            const inCity = this.cities.some(c => c.gx === u.gx && c.gy === u.gy);
+            const sy = (u.gx + u.gy) * (this.tileH / 2) - (inCity ? 18 : 6);
 
-            const spr = this.add.image(sx, sy, `unit_${u.type}`);
+            const texKey = (this.map[u.gx][u.gy].biome === 'water') ? 'unit_boat' : `unit_${u.type}`;
+            const spr = this.add.image(sx, sy, texKey);
             spr.setOrigin(0.5, 0.6);
             spr.setTint(u.owner === 'player' ? G.player.color : G.ai.color);
+            spr.setDepth(inCity ? 25 : 12);
             spr.setInteractive({ cursor: 'pointer' });
             spr.unitData = u;
 
@@ -495,11 +569,10 @@ class PolytropiaScene extends Phaser.Scene {
                 color: '#fff',
                 backgroundColor: '#0f172a',
                 padding: { x: 3, y: 1 }
-            }).setOrigin(0.5);
+            }).setOrigin(0.5).setDepth(inCity ? 26 : 13);
 
             spr.on('pointerdown', (p) => {
                 p.event.stopPropagation();
-                // QA FIX: Pokud máme označenou naši jednotku a klikli jsme na nepřítele -> ÚTOK!
                 if (G.selectedEntity && G.selectedEntity.type === 'unit' && G.selectedEntity.data.owner === 'player' && u.owner !== 'player') {
                     const attacker = G.selectedEntity.data;
                     this.handleUnitAttack(attacker, u);
@@ -529,6 +602,7 @@ class PolytropiaScene extends Phaser.Scene {
 
                     const cloud = this.add.image(sx, sy, 'cloud_fog');
                     cloud.setOrigin(0.5, 0.5);
+                    cloud.setDepth(30);
                     cloud.gx = gx;
                     cloud.gy = gy;
                     this.world.add(cloud);
@@ -540,8 +614,12 @@ class PolytropiaScene extends Phaser.Scene {
 
     revealFogAround(cx, cy, radius) {
         let revealedAny = false;
-        for (let x = cx - radius; x <= cx + radius; x++) {
-            for (let y = cy - radius; y <= cy + radius; y++) {
+        // Hory poskytují +1 rozhled
+        const isMountain = this.map[cx] && this.map[cx][cy] && this.map[cx][cy].biome === 'mountain';
+        const actualRadius = isMountain ? radius + 1 : radius;
+
+        for (let x = cx - actualRadius; x <= cx + actualRadius; x++) {
+            for (let y = cy - actualRadius; y <= cy + actualRadius; y++) {
                 if (x >= 0 && x < G.gridSize && y >= 0 && y < G.gridSize) {
                     if (this.fog[x][y]) {
                         this.fog[x][y] = false;
@@ -556,6 +634,7 @@ class PolytropiaScene extends Phaser.Scene {
             this.renderFogOfWar();
             this.renderCities();
             this.renderUnits();
+            renderMinimap();
         }
     }
 
@@ -564,16 +643,18 @@ class PolytropiaScene extends Phaser.Scene {
             if (p.isDown) {
                 this.world.x += (p.x - p.prevPosition.x);
                 this.world.y += (p.y - p.prevPosition.y);
+                renderMinimap();
             }
         });
 
         this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
             const newScale = Phaser.Math.Clamp(this.world.scaleX - deltaY * 0.001, 0.65, 1.8);
             this.world.setScale(newScale);
+            renderMinimap();
         });
     }
 
-    // --- SELECTION & INTERACTION (QA REVISED) ---
+    // --- SELECTION & INTERACTION ---
     selectUnit(unit) {
         if (unit.owner !== 'player') {
             showToast('⚠️ Nepřátelská jednotka. Zvol svou jednotku a zaútoč kliknutím na nepřítele!');
@@ -613,18 +694,22 @@ class PolytropiaScene extends Phaser.Scene {
                 const sy = (x + y) * (this.tileH / 2);
 
                 const enemyOnTile = this.units.find(en => en.gx === x && en.gy === y && en.owner !== 'player');
+                const canSail = G.player.unlockedTechs.includes('sailing');
+                const isWater = this.map[x][y].biome === 'water';
 
                 // ČERVENÝ ÚTOČNÝ INDIKÁTOR
                 if (enemyOnTile && !unit.attacked && dist <= attackRange) {
                     const ring = this.add.circle(sx, sy, 14, 0xef4444, 0.7);
                     ring.setStrokeStyle(2, 0xffffff, 0.9);
+                    ring.setDepth(18);
                     this.tweens.add({ targets: ring, scale: 1.25, yoyo: true, repeat: -1, duration: 400 });
                     this.world.add(ring);
                     this.moveHighlights.push({ x, y, type: 'attack', target: enemyOnTile, sprite: ring });
                 }
-                // MODRÝ POHYBOVÝ INDIKÁTOR
-                else if (!enemyOnTile && !unit.moved && dist <= moveRange && this.map[x][y].biome !== 'water') {
-                    const ring = this.add.circle(sx, sy, 10, 0x38bdf8, 0.6);
+                // MODRÝ POHYBOVÝ INDIKÁTOR (pohyb na vodu povolen pouze s Mořeplavbou)
+                else if (!enemyOnTile && !unit.moved && dist <= moveRange && (!isWater || canSail)) {
+                    const ring = this.add.circle(sx, sy, 10, isWater ? 0x0284c7 : 0x38bdf8, 0.6);
+                    ring.setDepth(18);
                     this.world.add(ring);
                     this.moveHighlights.push({ x, y, type: 'move', sprite: ring });
                 }
@@ -683,18 +768,18 @@ class PolytropiaScene extends Phaser.Scene {
         SFX.play('move');
         this.clearTileHighlights();
 
-        // Plynulá interpolace (Tween lerp)
         const spr = this.unitSprites.find(s => s.unitData === unit);
+        const inCity = this.cities.some(c => c.gx === targetX && c.gy === targetY);
         const targetSx = (targetX - targetY) * (this.tileW / 2);
-        const targetSy = (targetX + targetY) * (this.tileH / 2) - 6;
+        const targetSy = (targetX + targetY) * (this.tileH / 2) - (inCity ? 18 : 6);
 
         const onMoveDone = () => {
             this.checkCityCapture(unit, targetX, targetY);
             this.revealFogAround(targetX, targetY, 2);
             this.renderUnits();
             this.renderCities();
+            renderMinimap();
 
-            // Pokud jednotka ještě neútočila, znova zkontroluj a vysviť červené cíle kolem nové pozice
             if (G.selectedEntity && G.selectedEntity.data === unit && !unit.attacked) {
                 this.highlightMovementTiles(unit);
             }
@@ -738,6 +823,7 @@ class PolytropiaScene extends Phaser.Scene {
             G.score += 150;
             showToast(`🚩 MĚSTO ${city.name.toUpperCase()} BYLO DOBYTO!`);
             updateHUD();
+            renderMinimap();
             this.checkVictoryConditions();
         }
     }
@@ -750,15 +836,23 @@ class PolytropiaScene extends Phaser.Scene {
         const defDef = UNIT_TYPES[defender.type];
 
         SFX.play('attack');
-
-        // Screen Shake on attack
         this.cameras.main.shake(120, 0.007);
 
-        const dmg = Math.max(1, atkDef.atk - Math.floor(defDef.def / 2));
-        defender.hp -= dmg;
-        showToast(`⚔️ Zásah! Způsobeno ${dmg} poškození nepříteli!`);
+        // Terénní obranné bonusy:
+        let terrainDefBonus = 0;
+        const defTile = this.map[defender.gx][defender.gy];
+        if (defTile.biome === 'forest') terrainDefBonus += 1;
+        const defInCity = this.cities.find(c => c.gx === defender.gx && c.gy === defender.gy);
+        if (defInCity) {
+            terrainDefBonus += defInCity.hasWalls ? 4 : 2;
+        }
 
-        // Counterattack only if defender survived and was in range 1
+        const effectiveDef = defDef.def + terrainDefBonus;
+        const dmg = Math.max(1, atkDef.atk - Math.floor(effectiveDef / 2));
+        defender.hp -= dmg;
+        showToast(`⚔️ Zásah! Způsobeno ${dmg} poškození (Obrana terénu: +${terrainDefBonus})!`);
+
+        // Counterattack
         const dist = Math.max(Math.abs(attacker.gx - defender.gx), Math.abs(attacker.gy - defender.gy));
         if (defender.hp > 0 && dist === 1) {
             const counterDmg = Math.max(1, Math.floor(defDef.atk / 2));
@@ -770,7 +864,6 @@ class PolytropiaScene extends Phaser.Scene {
             this.units = this.units.filter(x => x !== defender);
             G.score += 30;
 
-            // Advance melee unit to vanquished tile
             if (atkDef.range === 1 && !attacker.moved) {
                 this.executeMove(attacker, defender.gx, defender.gy);
             }
@@ -782,15 +875,100 @@ class PolytropiaScene extends Phaser.Scene {
         }
 
         this.renderUnits();
+        renderMinimap();
         this.checkVictoryConditions();
     }
 
     checkVictoryConditions() {
-        const aiCity = this.cities.find(c => c.owner === 'ai');
-        if (!aiCity) {
-            showVictoryScreen('Slavné Vítězství! Nepřátelské hlavní město Khar-Durn padlo pod tvou nadvládu.');
+        const aiCities = this.cities.filter(c => c.owner === 'ai');
+        const aiUnits = this.units.filter(u => u.owner === 'ai');
+
+        if (aiCities.length === 0 && aiUnits.length === 0) {
+            showVictoryScreen('Totální Vítězství! Nepřátelská civilizace byla zcela vyhlazena.');
+        } else if (aiCities.length === 0) {
+            showVictoryScreen('Slavné Vítězství! Všechna nepřátelská města padla pod tvou kontrolu.');
         }
     }
+}
+
+// --- MINIMAP RADAR ENGINE ---
+let minimapCtx = null;
+
+function initMinimapInteractions(scene) {
+    const canvas = document.getElementById('minimap-canvas');
+    if (!canvas) return;
+    minimapCtx = canvas.getContext('2d');
+
+    canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        // Přepočet pixelů minimapy na mřížku
+        const gx = Math.floor((mx / canvas.width) * G.gridSize);
+        const gy = Math.floor((my / canvas.height) * G.gridSize);
+
+        // Vycentruj kameru na vybrané souřadnice
+        const targetSx = (gx - gy) * (scene.tileW / 2);
+        const targetSy = (gx + gy) * (scene.tileH / 2);
+
+        scene.world.x = scene.scale.width / 2 - targetSx * scene.world.scaleX;
+        scene.world.y = scene.scale.height / 3 - targetSy * scene.world.scaleY;
+
+        document.getElementById('minimap-coords').innerText = `[${gx}, ${gy}]`;
+        renderMinimap();
+    });
+}
+
+function renderMinimap() {
+    if (!minimapCtx) return;
+    const scene = game ? game.scene.getScene('PolytropiaScene') : null;
+    if (!scene || !scene.map) return;
+
+    const ctx = minimapCtx;
+    const cw = 140;
+    const ch = 140;
+    ctx.clearRect(0, 0, cw, ch);
+
+    const cellW = cw / G.gridSize;
+    const cellH = ch / G.gridSize;
+
+    // 1. Draw Tiles & Fog
+    for (let x = 0; x < G.gridSize; x++) {
+        for (let y = 0; y < G.gridSize; y++) {
+            const px = x * cellW;
+            const py = y * cellH;
+
+            if (scene.fog[x][y]) {
+                ctx.fillStyle = '#0f172a'; // Fog
+            } else {
+                const b = scene.map[x][y].biome;
+                if (b === 'water') ctx.fillStyle = '#0284c7';
+                else if (b === 'forest') ctx.fillStyle = '#15803d';
+                else if (b === 'mountain') ctx.fillStyle = '#94a3b8';
+                else ctx.fillStyle = '#4ade80';
+            }
+            ctx.fillRect(px, py, cellW, cellH);
+        }
+    }
+
+    // 2. Draw Cities
+    scene.cities.forEach(c => {
+        if (!scene.fog[c.gx][c.gy]) {
+            ctx.fillStyle = c.owner === 'player' ? '#38bdf8' : '#ef4444';
+            ctx.fillRect(c.gx * cellW + 1, c.gy * cellH + 1, cellW - 2, cellH - 2);
+        }
+    });
+
+    // 3. Draw Units
+    scene.units.forEach(u => {
+        if (!scene.fog[u.gx][u.gy]) {
+            ctx.fillStyle = u.owner === 'player' ? '#ffffff' : '#f87171';
+            ctx.beginPath();
+            ctx.arc(u.gx * cellW + cellW / 2, u.gy * cellH + cellH / 2, cellW / 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    });
 }
 
 // --- HUD & DOCK UI MANAGEMENT ---
@@ -800,7 +978,7 @@ function updateHUD() {
     document.getElementById('hud-score').innerText = G.score;
 
     let inc = 0;
-    const scene = game.scene.getScene('PolytropiaScene');
+    const scene = game ? game.scene.getScene('PolytropiaScene') : null;
     if (scene && scene.cities) {
         scene.cities.forEach(c => {
             if (c.owner === 'player') inc += c.income;
@@ -825,7 +1003,6 @@ function openUnitDock(unit) {
         </div>
     `;
 
-    // Pokud je jednotka Osadník -> Tlačítko Založit Město
     if (unit.type === 'settler') {
         actionsHtml += `
             <div class="action-chip" style="background:#0284c7; border-color:#38bdf8;" onclick="foundNewCityWithSettler()">
@@ -849,35 +1026,64 @@ function openCityDock(city) {
     title.innerText = `Město ${city.name} (Úr. ${city.level})`;
     sub.innerText = `Růst: ${city.progress}/${city.progressMax} • Příjem: +${city.income} ⭐/tah`;
 
+    const scene = game.scene.getScene('PolytropiaScene');
+    const garrisonUnit = scene.units.find(u => u.gx === city.gx && u.gy === city.gy && u.owner === 'player');
+
+    let garrisonHtml = '';
+    if (garrisonUnit) {
+        garrisonHtml = `
+            <div class="garrison-banner" onclick="selectGarrisonUnit(${garrisonUnit.id})">
+                <span>🛡️ Posádka: <strong>${UNIT_TYPES[garrisonUnit.type].name}</strong> (${garrisonUnit.hp}/${garrisonUnit.maxHp} HP)</span>
+                <button class="btn-garrison">OVLÁDAT JEDNOTKU</button>
+            </div>
+        `;
+    }
+
     shelf.innerHTML = `
-        <div class="action-chip ${G.player.stars < 3 ? 'disabled' : ''}" onclick="trainUnitInCity('warrior', ${city.id})">
-            <span>🗡️ Válečník</span> <span class="cost">(3 ⭐)</span>
-        </div>
-        <div class="action-chip ${G.player.stars < 7 ? 'disabled' : ''}" onclick="trainUnitInCity('settler', ${city.id})">
-            <span>⛺ Osadník</span> <span class="cost">(7 ⭐)</span>
-        </div>
-        ${G.player.unlockedTechs.includes('archery') ? `
-            <div class="action-chip ${G.player.stars < 5 ? 'disabled' : ''}" onclick="trainUnitInCity('archer', ${city.id})">
-                <span>🏹 Lučištník</span> <span class="cost">(5 ⭐)</span>
+        ${garrisonHtml}
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;">
+            <div class="action-chip ${G.player.stars < 3 ? 'disabled' : ''}" onclick="trainUnitInCity('warrior', ${city.id})">
+                <span>🗡️ Válečník</span> <span class="cost">(3 ⭐)</span>
             </div>
-        ` : ''}
-        ${G.player.unlockedTechs.includes('smithing') ? `
-            <div class="action-chip ${G.player.stars < 8 ? 'disabled' : ''}" onclick="trainUnitInCity('knight', ${city.id})">
-                <span>🐎 Rytíř</span> <span class="cost">(8 ⭐)</span>
+            <div class="action-chip ${G.player.stars < 7 ? 'disabled' : ''}" onclick="trainUnitInCity('settler', ${city.id})">
+                <span>⛺ Osadník</span> <span class="cost">(7 ⭐)</span>
             </div>
-        ` : ''}
-        <div class="action-chip ${G.player.stars < 5 ? 'disabled' : ''}" onclick="improveCityFarmland(${city.id})">
-            <span>🌾 Založit Farmu</span> <span class="cost">(5 ⭐)</span>
+            ${G.player.unlockedTechs.includes('archery') ? `
+                <div class="action-chip ${G.player.stars < 5 ? 'disabled' : ''}" onclick="trainUnitInCity('archer', ${city.id})">
+                    <span>🏹 Lučištník</span> <span class="cost">(5 ⭐)</span>
+                </div>
+            ` : ''}
+            ${G.player.unlockedTechs.includes('smithing') ? `
+                <div class="action-chip ${G.player.stars < 8 ? 'disabled' : ''}" onclick="trainUnitInCity('knight', ${city.id})">
+                    <span>🐎 Rytíř</span> <span class="cost">(8 ⭐)</span>
+                </div>
+            ` : ''}
+            <div class="action-chip ${G.player.stars < 5 ? 'disabled' : ''}" onclick="improveCityFarmland(${city.id})">
+                <span>🌾 Založit Farmu</span> <span class="cost">(5 ⭐)</span>
+            </div>
+            ${G.player.unlockedTechs.includes('mining') ? `
+                <div class="action-chip ${G.player.stars < 6 ? 'disabled' : ''}" onclick="buildMountainMine(${city.id})">
+                    <span>⛏️ Postavit Důl</span> <span class="cost">(6 ⭐)</span>
+                </div>
+            ` : ''}
+            ${G.player.unlockedTechs.includes('fortification') && !city.hasWalls ? `
+                <div class="action-chip ${G.player.stars < 8 ? 'disabled' : ''}" onclick="buildCityWalls(${city.id})">
+                    <span>🏰 Postavit Hradby</span> <span class="cost">(8 ⭐)</span>
+                </div>
+            ` : ''}
         </div>
-        ${G.player.unlockedTechs.includes('mining') ? `
-            <div class="action-chip ${G.player.stars < 6 ? 'disabled' : ''}" onclick="buildMountainMine(${city.id})">
-                <span>⛏️ Postavit Důl</span> <span class="cost">(6 ⭐)</span>
-            </div>
-        ` : ''}
     `;
 
     dock.classList.remove('hidden');
 }
+
+window.selectGarrisonUnit = function(unitId) {
+    const scene = game.scene.getScene('PolytropiaScene');
+    const u = scene.units.find(x => x.id === unitId);
+    if (u) {
+        scene.selectUnit(u);
+    }
+};
 
 window.healSelectedUnit = function() {
     if (!G.selectedEntity || G.selectedEntity.type !== 'unit') return;
@@ -902,7 +1108,6 @@ window.foundNewCityWithSettler = function() {
 
     const scene = game.scene.getScene('PolytropiaScene');
 
-    // Ověř, zda na políčku již město nestojí nebo zda není příliš blízko jinému městu
     const existingHere = scene.cities.some(c => c.gx === u.gx && c.gy === u.gy);
     if (existingHere) {
         showToast('⚠️ Na tomto políčku již město existuje!');
@@ -920,7 +1125,6 @@ window.foundNewCityWithSettler = function() {
         return;
     }
 
-    // Založ nové město
     const cityNames = ['Lunaria', 'Astra', 'Valoria', 'Nova Solis', 'Eldoria', 'Pyros'];
     const newName = cityNames[scene.cities.length % cityNames.length];
 
@@ -933,10 +1137,10 @@ window.foundNewCityWithSettler = function() {
         level: 1,
         progress: 0,
         progressMax: 2,
-        income: 3
+        income: 3,
+        hasWalls: false
     });
 
-    // Odstraň osadníka
     scene.units = scene.units.filter(x => x !== u);
 
     SFX.play('level_up');
@@ -947,6 +1151,7 @@ window.foundNewCityWithSettler = function() {
     scene.revealFogAround(u.gx, u.gy, 2);
     scene.renderCities();
     scene.renderUnits();
+    renderMinimap();
     updateHUD();
     closeDock();
 };
@@ -986,6 +1191,7 @@ window.trainUnitInCity = function(type, cityId) {
     showToast(`⚔️ Vycvičen nový ${UNIT_TYPES[type].name}!`);
 
     scene.renderUnits();
+    renderMinimap();
     updateHUD();
     closeDock();
 };
@@ -1053,7 +1259,6 @@ window.buildMountainMine = function(cityId) {
     city.income += 3;
     G.score += 45;
 
-    // Render gold mine overlay
     const sx = (targetMountain.gx - targetMountain.gy) * (scene.tileW / 2);
     const sy = (targetMountain.gx + targetMountain.gy) * (scene.tileH / 2);
     const mOverlay = scene.add.image(sx, sy, 'feat_mine');
@@ -1061,6 +1266,25 @@ window.buildMountainMine = function(cityId) {
 
     SFX.play('level_up');
     showToast(`⛏️ Zlatý důl zprovozněn! Příjem města zvýšen o +3 ⭐/tah.`);
+    updateHUD();
+    openCityDock(city);
+};
+
+window.buildCityWalls = function(cityId) {
+    if (G.player.stars < 8) {
+        showToast('❌ Nedostatek Hvězd na vybudování hradeb!');
+        return;
+    }
+
+    const scene = game.scene.getScene('PolytropiaScene');
+    const city = scene.cities.find(c => c.id === cityId);
+
+    G.player.stars -= 8;
+    city.hasWalls = true;
+    G.score += 60;
+
+    SFX.play('level_up');
+    showToast(`🏰 Město ${city.name} opevněno kamennými hradbami (+3 k obraně posádky)!`);
     updateHUD();
     openCityDock(city);
 };
@@ -1140,46 +1364,62 @@ function executeEndTurn() {
     scene.clearTileHighlights();
     closeDock();
     updateHUD();
+    renderMinimap();
 
     if (G.turn > G.maxTurns) {
-        showVictoryScreen('Konec 30 tahů! Zvítězil jsi na body rozvojem říše.');
+        showVictoryScreen('Konec 50 tahů! Zvítězil jsi na body rozvojem říše.');
     }
 }
 
 function executeAITurn(scene) {
     const aiUnits = scene.units.filter(u => u.owner === 'ai');
-    const aiCity = scene.cities.find(c => c.owner === 'ai');
+    const aiCities = scene.cities.filter(c => c.owner === 'ai');
 
-    if (G.ai.stars >= 3 && aiCity) {
-        const hasUnitInCity = scene.units.some(u => u.gx === aiCity.gx && u.gy === aiCity.gy);
-        if (!hasUnitInCity) {
-            G.ai.stars -= 3;
-            scene.units.push({
-                id: Date.now() + Math.random(),
-                owner: 'ai',
-                type: 'warrior',
-                gx: aiCity.gx,
-                gy: aiCity.gy,
-                hp: 10,
-                maxHp: 10,
-                moved: false,
-                attacked: false
-            });
+    // AI City unit training
+    aiCities.forEach(aiCity => {
+        if (G.ai.stars >= 3) {
+            const hasUnitInCity = scene.units.some(u => u.gx === aiCity.gx && u.gy === aiCity.gy);
+            if (!hasUnitInCity) {
+                G.ai.stars -= 3;
+                scene.units.push({
+                    id: Date.now() + Math.random(),
+                    owner: 'ai',
+                    type: Math.random() < 0.35 ? 'archer' : 'warrior',
+                    gx: aiCity.gx,
+                    gy: aiCity.gy,
+                    hp: 10,
+                    maxHp: 10,
+                    moved: false,
+                    attacked: false
+                });
+            }
         }
-    }
+    });
 
+    // AI Units move towards player cities and attack
     aiUnits.forEach(u => {
-        const playerCity = scene.cities.find(c => c.owner === 'player');
-        if (!playerCity) return;
+        const playerCities = scene.cities.filter(c => c.owner === 'player');
+        if (playerCities.length === 0) return;
+
+        // Cíl: nejbližší hráčovo město
+        let nearestCity = playerCities[0];
+        let minDist = 999;
+        playerCities.forEach(pc => {
+            const d = Math.hypot(pc.gx - u.gx, pc.gy - u.gy);
+            if (d < minDist) {
+                minDist = d;
+                nearestCity = pc;
+            }
+        });
 
         let nextX = u.gx;
         let nextY = u.gy;
 
-        if (playerCity.gx < u.gx) nextX -= 1;
-        else if (playerCity.gx > u.gx) nextX += 1;
+        if (nearestCity.gx < u.gx) nextX -= 1;
+        else if (nearestCity.gx > u.gx) nextX += 1;
 
-        if (playerCity.gy < u.gy) nextY -= 1;
-        else if (playerCity.gy > u.gy) nextY += 1;
+        if (nearestCity.gy < u.gy) nextY -= 1;
+        else if (nearestCity.gy > u.gy) nextY += 1;
 
         const targetPlayer = scene.units.find(pu => pu.gx === nextX && pu.gy === nextY && pu.owner === 'player');
         if (targetPlayer) {
@@ -1192,6 +1432,8 @@ function executeAITurn(scene) {
             if (scene.map[nextX][nextY].biome !== 'water') {
                 u.gx = nextX;
                 u.gy = nextY;
+                // AI can capture player city if standing empty!
+                scene.checkCityCapture(u, nextX, nextY);
             }
         }
     });
@@ -1243,7 +1485,6 @@ window.addEventListener('DOMContentLoaded', () => {
         window.location.reload();
     });
 
-    // KEYBOARD SHORTCUTS (ENTER, SPACE, T, ESC)
     window.addEventListener('keydown', (e) => {
         const techModal = document.getElementById('tech-modal');
 
@@ -1262,7 +1503,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
 
         if (e.key === 'Enter' || e.code === 'Space') {
-            // Ignorovat, pokud je otevřen Tech strom nebo Game over
             if (techModal && !techModal.classList.contains('hidden')) return;
             if (G.gameOver) return;
             executeEndTurn();

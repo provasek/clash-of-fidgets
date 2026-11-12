@@ -49,6 +49,20 @@
             </div>
         </header>
 
+        <!-- Radar Minimap Component (Corner HUD) -->
+        <div id="minimap-panel" class="minimap-box">
+            <div class="minimap-header">
+                <span>RADAR SVĚTA</span>
+                <span id="minimap-coords">[3, 3]</span>
+            </div>
+            <canvas id="minimap-canvas" width="140" height="140"></canvas>
+            <div class="minimap-legend">
+                <span class="dot player"></span> Hráč
+                <span class="dot enemy"></span> Nepřítel
+                <span class="dot city"></span> Město
+            </div>
+        </div>
+
         <!-- Selected Entity Action Dock (Dynamic Unit or City Controls) -->
         <div id="entity-dock" class="dock-panel hidden">
             <div class="dock-header">
