@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#070b14" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Aetheris: Orbitální Kolonie</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./assets/icon.svg" />
+  <link rel="apple-touch-icon" href="./assets/icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <!-- Horní HUD lišta -->
+    <header class="hud-header">
+      <div class="hud-top-row">
+        <div class="sector-badge" id="sector-badge" title="Aktuální sektor">
+          <span class="sector-dot"></span>
+          <span id="sector-name">Sektor 1: Pás Aetheris</span>
+        </div>
+        <div class="hud-actions">
+          <button id="btn-event-boost" class="icon-btn boost-pill hidden" title="Aktivní událost">
+            ⚡ <span id="event-timer">00s</span>
+          </button>
+          <button id="btn-music" class="icon-btn" aria-label="Hudba" title="Zapnout/vypnout hudbu">🎵</button>
+          <button id="btn-sound" class="icon-btn" aria-label="Zvuk" title="Zapnout/vypnout zvuk">🔊</button>
+          <button id="btn-settings" class="icon-btn" aria-label="Nastavení" title="Nastavení a save">⚙️</button>
+        </div>
+      </div>
+
+      <div class="resources-grid">
+        <div class="res-card res-credits">
+          <div class="res-icon">🪙</div>
+          <div class="res-info">
+            <div class="res-val" id="res-credits">0</div>
+            <div class="res-rate" id="rate-credits">+0/s</div>
+          </div>
+        </div>
+        <div class="res-card res-ore">
+          <div class="res-icon">🪨</div>
+          <div class="res-info">
+            <div class="res-val" id="res-ore">0</div>
+            <div class="res-rate" id="rate-ore">+0/s</div>
+          </div>
+        </div>
+        <div class="res-card res-energy">
+          <div class="res-icon">⚡</div>
+          <div class="res-info">
+            <div class="res-val" id="res-energy">0 / 0</div>
+            <div class="res-rate" id="rate-energy">100% výkon</div>
+          </div>
+        </div>
+        <div class="res-card res-research">
+          <div class="res-icon">🔬</div>
+          <div class="res-info">
+            <div class="res-val" id="res-research">0</div>
+            <div class="res-rate" id="rate-research">+0/s</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Interaktivní vesmírná scéna (Canvas) -->
+    <main class="viewport-stage">
+      <canvas id="game-canvas"></canvas>
+      <div class="stage-overlay-top">
+        <div class="dark-matter-pill" id="dm-pill" title="Temná hmota (trvalý bonus k příjmům)">
+          <span>✨</span>
+          <span id="res-dm">0</span>
+          <span class="dm-bonus" id="dm-bonus">(+0%)</span>
+        </div>
+        <div class="tap-hint" id="tap-hint">Ťukej na asteroidy!</div>
+      </div>
+    </main>
+
+    <!-- Spodní panel s obsahem záložek -->
+    <section class="bottom-drawer">
+      <div class="drawer-toolbar" id="drawer-toolbar">
+        <h2 class="drawer-title" id="drawer-title">Moduly stanice</h2>
+        <div class="buy-multiplier" id="buy-multiplier-group">
+          <button class="mult-btn active" data-mult="1">1×</button>
+          <button class="mult-btn" data-mult="10">10×</button>
+          <button class="mult-btn" data-mult="max">MAX</button>
+        </div>
+      </div>
+
+      <div class="drawer-content" id="drawer-content">
+        <!-- Dynamicky vykresleno z ui.js -->
+      </div>
+
+      <!-- Spodní navigace -->
+      <nav class="bottom-nav" role="tablist">
+        <button class="nav-btn active" data-tab="station" role="tab" aria-selected="true">
+          <span class="nav-icon">🛰️</span>
+          <span class="nav-label">Stanice</span>
+        </button>
+        <button class="nav-btn" data-tab="research" role="tab" aria-selected="false">
+          <span class="nav-icon">🔬</span>
+          <span class="nav-label">Výzkum</span>
+          <span class="nav-badge hidden" id="badge-research">!</span>
+        </button>
+        <button class="nav-btn" data-tab="achievements" role="tab" aria-selected="false">
+          <span class="nav-icon">🏆</span>
+          <span class="nav-label">Úspěchy</span>
+          <span class="nav-badge hidden" id="badge-achievements">0</span>
+        </button>
+        <button class="nav-btn" data-tab="prestige" role="tab" aria-selected="false">
+          <span class="nav-icon">🌌</span>
+          <span class="nav-label">Skok</span>
+          <span class="nav-badge hidden" id="badge-prestige">★</span>
+        </button>
+      </nav>
+    </section>
+
+    <!-- Toast notifikace (Achievementy / Události) -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <!-- Modální okno (Offline výdělek / Nastavení) -->
+    <div id="modal-backdrop" class="modal-backdrop hidden">
+      <div class="modal-card" id="modal-card">
+        <div class="modal-header">
+          <h3 id="modal-title">Titulek</h3>
+          <button id="modal-close" class="icon-btn">✕</button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

@@ -4,6 +4,19 @@
  */
 const PROJECTS = [
     {
+        id: "aetheris",
+        title: "Aetheris: Orbitální Kolonie",
+        category: "games",
+        badge: "🚀 Mobilní Tycoon",
+        badgeType: "featured",
+        icon: "🛰️",
+        description: "Polonekonečný vesmírný těžební tycoon (PWA) s interaktivní 2D stanicí, autonomními drony, výzkumem, 15 achievementy, procedurální ambientní hudbou a prestižním systémem.",
+        tags: ["HTML5 Canvas", "PWA", "Web Audio API", "Tycoon"],
+        playUrl: "/projects/aetheris/",
+        githubUrl: "https://github.com/provasek/aetheris",
+        featured: true
+    },
+    {
         id: "jarvis",
         title: "J.A.R.V.I.S. // Mark VII OS",
         category: "ai",
