@@ -485,7 +485,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.save();
             ctx.translate(cx, cy);
 
-            // Ring 1: Outer segmented circle with tick marks
+            // Ring 1: Outer segmented circle with tick marks + scanner sweep
             ctx.save();
             ctx.rotate(angle1);
             ctx.strokeStyle = mainColor;
@@ -495,7 +495,20 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.arc(0, 0, 195, 0, Math.PI * 2);
             ctx.stroke();
 
+            // Outer scanner sweep arc
             ctx.setLineDash([]);
+            ctx.strokeStyle = colors.alpha(0.35);
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(0, 0, 210, 0, Math.PI * 0.45);
+            ctx.stroke();
+
+            ctx.strokeStyle = colors.alpha(0.18);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(0, 0, 210, 0, Math.PI * 2);
+            ctx.stroke();
+
             for (let i = 0; i < 36; i++) {
                 const rad = (i * 10 * Math.PI) / 180;
                 const len = (i % 3 === 0) ? 12 : 5;
@@ -644,6 +657,25 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    const sentryState = {
+        highCpuStreak: 0,
+        highRamStreak: 0,
+        lastCpuAlert: 0,
+        lastRamAlert: 0,
+        lastBatAlert: 0
+    };
+
+    function triggerSentryAlert(key, msg) {
+        const now = Date.now();
+        if (now - (sentryState[key] || 0) < 300000) return; // 5 min cooldown
+        sentryState[key] = now;
+        playTone(620, 'triangle', 0.14, 0.14);
+        appendMessage("jarvis", msg);
+        if (typeof speakText === "function" && state.ttsEnabled) {
+            speakText(msg);
+        }
+    }
+
     async function fetchTelemetry() {
         try {
             const res = await fetch(apiUrl("/api/telemetry"));
@@ -722,6 +754,19 @@ document.addEventListener("DOMContentLoaded", () => {
                         <span>CPU: ${p.cpu}% | RAM: ${p.mem}%</span>
                     </div>
                 `).join("");
+            }
+
+            // Proactive Sentry Alerts
+            sentryState.highCpuStreak = (data.cpu_total >= 92) ? sentryState.highCpuStreak + 1 : 0;
+            if (sentryState.highCpuStreak >= 4) {
+                triggerSentryAlert("lastCpuAlert", `⚠️ Upozornění, pane: Vytížení procesoru se drží na ${data.cpu_total} %.`);
+            }
+            sentryState.highRamStreak = (data.ram && data.ram.percent >= 92) ? sentryState.highRamStreak + 1 : 0;
+            if (sentryState.highRamStreak >= 4) {
+                triggerSentryAlert("lastRamAlert", `⚠️ Upozornění, pane: Operační paměť je zaplněna na ${data.ram.percent} %.`);
+            }
+            if (batt && !batt.power_plugged && batt.percent <= 20) {
+                triggerSentryAlert("lastBatAlert", `🔋 Upozornění, pane: Baterie klesla na ${batt.percent} %, doporučuji připojit napájení.`);
             }
 
         } catch (err) {
@@ -1387,7 +1432,70 @@ document.addEventListener("DOMContentLoaded", () => {
     loadNotes();
 
     // ==========================================
-    // 10. AUDIO & TTS TOGGLES
+    // 10. HUE LIGHTING DECK & SCENE BUTTONS
+    // ==========================================
+    async function sendHueControl(payload) {
+        try {
+            const res = await fetch(apiUrl("/api/hue/control"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.status === "error" && data.message) {
+                appendMessage("jarvis", data.message);
+            }
+        } catch (err) {
+            console.warn("Hue control error:", err);
+        }
+    }
+
+    document.querySelectorAll("[data-hue-preset]").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            getAudioContext();
+            playTone(760, 'sine', 0.08, 0.08);
+            const preset = btn.dataset.huePreset;
+            const briEl = document.getElementById("hue-bri-slider");
+            const bri = briEl ? parseInt(briEl.value, 10) : 200;
+            sendHueControl(preset === "off" ? { preset } : { preset, bri });
+        });
+    });
+
+    const hueColorPicker = document.getElementById("hue-color-picker");
+    let hueColorTimer = null;
+    if (hueColorPicker) {
+        hueColorPicker.addEventListener("input", () => {
+            clearTimeout(hueColorTimer);
+            hueColorTimer = setTimeout(() => {
+                const briEl = document.getElementById("hue-bri-slider");
+                const bri = briEl ? parseInt(briEl.value, 10) : 200;
+                sendHueControl({ hex: hueColorPicker.value, bri });
+            }, 120);
+        });
+    }
+
+    const hueBriSlider = document.getElementById("hue-bri-slider");
+    let hueBriTimer = null;
+    if (hueBriSlider) {
+        hueBriSlider.addEventListener("input", () => {
+            clearTimeout(hueBriTimer);
+            hueBriTimer = setTimeout(() => {
+                sendHueControl({ bri: parseInt(hueBriSlider.value, 10) });
+            }, 120);
+        });
+    }
+
+    document.querySelectorAll(".scene-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const scene = btn.dataset.scene;
+            if (scene) processUserMessage(scene);
+        });
+    });
+
+    // ==========================================
+    // 11. AUDIO & TTS TOGGLES
     // ==========================================
     btnAudioMute.addEventListener("click", () => {
         state.sfxEnabled = !state.sfxEnabled;

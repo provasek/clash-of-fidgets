@@ -177,6 +177,26 @@
                 </div>
             </div>
 
+            <!-- HUE LIGHTING DECK -->
+            <div class="hue-deck" id="hue-deck">
+                <div class="hue-deck-header">
+                    <span class="hue-deck-title">💡 HUE LIGHTING</span>
+                    <div class="hue-deck-controls-top">
+                        <input type="color" id="hue-color-picker" class="hue-color-input" value="#00e5ff" title="Vlastní barva Hue">
+                        <button type="button" class="hue-btn" data-hue-preset="off" title="Zhasnout Hue">OFF</button>
+                    </div>
+                </div>
+                <div class="hue-swatches">
+                    <button type="button" class="hue-swatch" data-hue-preset="warm" style="background:#ffb86c;" title="Teplá bílá"></button>
+                    <button type="button" class="hue-swatch" data-hue-preset="cool" style="background:#e0f4ff;" title="Studená bílá"></button>
+                    <button type="button" class="hue-swatch" data-hue-preset="jarvis" style="background:#00e5ff;" title="Jarvis Cyan"></button>
+                    <button type="button" class="hue-swatch" data-hue-preset="ironman" style="background:#ff3300;" title="Iron Man Red"></button>
+                    <button type="button" class="hue-swatch" data-hue-preset="purple" style="background:#a855f7;" title="Fialová"></button>
+                    <button type="button" class="hue-swatch hue-loop" data-hue-preset="colorloop" title="Párty Colorloop">🌈</button>
+                    <input type="range" id="hue-bri-slider" class="hue-bri-slider" min="5" max="254" value="200" title="Jas světel Hue">
+                </div>
+            </div>
+
             <!-- ACTIVE TIMERS DECK -->
             <div id="active-timers-deck" class="active-timers-deck">
                 <!-- Dynamically populated by JS -->
@@ -213,6 +233,15 @@
                 </button>
                 <button class="proto-btn" data-proto="clean-slate">
                     <span class="btn-bracket">[</span> CLEAN SLATE <span class="btn-bracket">]</span>
+                </button>
+                <button class="proto-btn scene-btn" data-scene="filmový večer" title="Ztlumí Hue, pauzne hudbu, hlasitost 45 %">
+                    <span class="btn-bracket">[</span> 🎬 KINO <span class="btn-bracket">]</span>
+                </button>
+                <button class="proto-btn scene-btn" data-scene="pracovní režim" title="Jasné světlo + 25 min Pomodoro">
+                    <span class="btn-bracket">[</span> 💼 PRÁCE <span class="btn-bracket">]</span>
+                </button>
+                <button class="proto-btn scene-btn" data-scene="odcházím" title="Zhasne Hue, pauzne hudbu a zamkne PC">
+                    <span class="btn-bracket">[</span> 🌙 ODCHÁZÍM <span class="btn-bracket">]</span>
                 </button>
             </div>
         </section>
