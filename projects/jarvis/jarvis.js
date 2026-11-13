@@ -954,7 +954,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 btn.classList.remove("btn-busy");
                 setTimeout(() => {
                     mediaActionPending = false;
-                }, 200);
+                }, 40);
             }
         });
     });
