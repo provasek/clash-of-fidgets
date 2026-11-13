@@ -1640,7 +1640,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.addEventListener("click", (e) => {
             e.stopPropagation();
             const scene = btn.dataset.scene;
-            if (scene) processUserMessage(scene);
+            if (scene) handleUserMessage(scene);
         });
     });
 
