@@ -1500,16 +1500,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let hueSpecTimer = null;
     if (hueSpectrumSlider) {
+        const sendSpec = () => {
+            const hex = hslToHex(parseInt(hueSpectrumSlider.value, 10));
+            const bri = hueBriSlider ? parseInt(hueBriSlider.value, 10) : 200;
+            sendHueControl({ hex, bri });
+        };
         hueSpectrumSlider.addEventListener("input", () => {
             const hex = hslToHex(parseInt(hueSpectrumSlider.value, 10));
             if (hueActiveSwatch) hueActiveSwatch.style.background = hex;
             if (hueColorPicker) hueColorPicker.value = hex;
             document.querySelectorAll("[data-hue-preset]").forEach(b => b.classList.remove("active"));
             clearTimeout(hueSpecTimer);
-            hueSpecTimer = setTimeout(() => {
-                const bri = hueBriSlider ? parseInt(hueBriSlider.value, 10) : 200;
-                sendHueControl({ hex, bri });
-            }, 120);
+            hueSpecTimer = setTimeout(sendSpec, 250);
+        });
+        hueSpectrumSlider.addEventListener("change", () => {
+            clearTimeout(hueSpecTimer);
+            sendSpec();
         });
     }
 
@@ -1522,19 +1528,22 @@ document.addEventListener("DOMContentLoaded", () => {
             hueColorTimer = setTimeout(() => {
                 const bri = hueBriSlider ? parseInt(hueBriSlider.value, 10) : 200;
                 sendHueControl({ hex: hueColorPicker.value, bri });
-            }, 120);
+            }, 250);
         });
     }
 
     let hueBriTimer = null;
     if (hueBriSlider) {
+        const sendBri = () => sendHueControl({ bri: parseInt(hueBriSlider.value, 10) });
         hueBriSlider.addEventListener("input", () => {
             const bri = parseInt(hueBriSlider.value, 10);
             if (hueBriVal) hueBriVal.textContent = `${Math.round((bri / 254) * 100)}%`;
             clearTimeout(hueBriTimer);
-            hueBriTimer = setTimeout(() => {
-                sendHueControl({ bri });
-            }, 120);
+            hueBriTimer = setTimeout(sendBri, 250);
+        });
+        hueBriSlider.addEventListener("change", () => {
+            clearTimeout(hueBriTimer);
+            sendBri();
         });
     }
 
