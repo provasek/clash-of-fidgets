@@ -113,7 +113,8 @@ export class SpaceRenderer {
         });
 
         this.spawnBurst(a.x, a.y, isComet ? '#fbbf24' : '#94a3b8', isComet ? 18 : 10);
-        a.hp -= 1;
+        const dmg = a.isBoss && this.state.hasTech('boss_hunter') ? 2 : 1;
+        a.hp -= dmg;
         const reward = this.onAsteroidTap(isComet);
 
         const label = reward.isCrit
@@ -333,7 +334,8 @@ export class SpaceRenderer {
     // Autopilot obranné věže (tech)
     if (this.state.hasTech('auto_turret') && this.asteroids.length > 0) {
       this.turretTimer += dt;
-      if (this.turretTimer >= 2.0) {
+      const turretInterval = this.state.hasTech('turret_mk2') ? 1.0 : 2.0;
+      if (this.turretTimer >= turretInterval) {
         this.turretTimer = 0;
         const target = this.asteroids[0];
         this.lasers.push({
@@ -582,6 +584,19 @@ export class SpaceRenderer {
         ctx.arc(0, 0, 56, startA, endA);
         ctx.stroke();
       }
+      ctx.restore();
+    }
+
+    // Dysonův kolektor (vnější zlatá korona kolem stanice)
+    if ((mods.dyson || 0) > 0) {
+      ctx.save();
+      ctx.rotate(this.time * 0.18);
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 8]);
+      ctx.beginPath();
+      ctx.arc(0, 0, 68, 0, Math.PI * 2);
+      ctx.stroke();
       ctx.restore();
     }
 

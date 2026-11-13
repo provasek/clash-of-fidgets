@@ -195,7 +195,7 @@ export class UIController {
     this.els.rateResearch.textContent = `+${formatNum(r.research)}/s`;
 
     this.els.dm.textContent = formatNum(d.darkMatter);
-    this.els.dmBonus.textContent = `(+${Math.round(d.darkMatter * 15)}%)`;
+    this.els.dmBonus.textContent = `(+${Math.round(d.darkMatter * 12)}%)`;
     this.els.btnMusic.style.opacity = d.musicEnabled ? '1' : '0.45';
     this.els.btnSound.textContent = d.soundEnabled ? '🔊' : '🔇';
 
@@ -446,7 +446,7 @@ export class UIController {
     const hero = `
       <div class="prestige-hero">
         <h3>🌌 Hyperprostorový skok</h3>
-        <p>Přesuň kolonii do dalšího sektoru. Moduly a výzkum se resetují, ale získáš trvalou <strong>Temnou hmotu (✨)</strong> (+15 % produkce za každý kus) a zachováš si všechny Úspěchy!</p>
+        <p>Přesuň kolonii do dalšího sektoru. Moduly a výzkum se resetují, ale získáš trvalou <strong>Temnou hmotu (✨)</strong> (+12 % produkce za každý kus) a zachováš si všechny Úspěchy!</p>
         <div class="prestige-gain" id="prestige-pending-val">+${formatNum(pending)} ✨</div>
         <p style="margin-bottom: 10px; font-size: 0.72rem;">
           Cíl sektoru: ${formatNum(d.sectorCredits)} / ${formatNum(threshold)} 🪙

@@ -34,6 +34,8 @@ export function createInitialState() {
     lifetimeCredits: 30,
     totalTaps: 0,
     sectorTaps: 0,
+    bossKills: 0,
+    megaCompleted: 0,
     prestigeCount: 0,
     modules,
     researched: [],
@@ -159,8 +161,8 @@ export class GameState {
   }
 
   getDarkMatterMultiplier() {
-    // Každá 1 Temná hmota = +15 % ke všem příjmům
-    return 1 + this.data.darkMatter * 0.15;
+    // Každá 1 Temná hmota = +12 % ke všem příjmům
+    return 1 + this.data.darkMatter * 0.12;
   }
 
   getOverclockMultiplier() {
@@ -209,10 +211,11 @@ export class GameState {
     const sectorMod = getSectorInfo(this.data.sector).mod;
     let mult = this.getDarkMatterMultiplier() * this.getAchievementBonus() * this.getOverclockMultiplier() * this.getEventMultiplier();
     if (this.hasTech('hyper_logistics')) mult *= 1.5;
+    if (this.hasTech('galactic_network')) mult *= 1.75;
     if (sectorMod.creditsMult) mult *= sectorMod.creditsMult;
     mult *= 1 + (this.data.megastructureStage || 0) * 0.25;
     // Mírný sektorový bonus za postup
-    mult *= 1 + this.data.sector * 0.2;
+    mult *= 1 + this.data.sector * 0.15;
     return mult;
   }
 
@@ -233,7 +236,7 @@ export class GameState {
     return {
       count,
       reached,
-      mult: Math.pow(2, reached),
+      mult: Math.pow(1.5, reached),
       prevTarget,
       nextTarget,
       maxed: count >= MODULE_MILESTONES[MODULE_MILESTONES.length - 1]
@@ -281,11 +284,12 @@ export class GameState {
     let energyProd = 0;
     let energyUse = 0;
     const sectorMod = getSectorInfo(this.data.sector).mod;
-    const energyTechMult = (this.hasTech('solar_nano') ? 1.35 : 1) * (sectorMod.energyMult || 1);
+    const energyTechMult = (this.hasTech('solar_nano') ? 1.35 : 1) * (this.hasTech('solar_swarm') ? 1.5 : 1) * (sectorMod.energyMult || 1);
     const oreSaveMult = this.hasTech('plasma_recycle') ? 0.5 : 1;
     const sectorOreMult = sectorMod.oreMult || 1;
     const doctrineResMult = this.data.doctrine === 'science' ? 1.5 : this.data.doctrine === 'mining' ? 0.85 : 1;
-    const sectorResMult = (sectorMod.researchMult || 1) * doctrineResMult * (1 + (this.data.megastructureStage || 0) * 0.25);
+    const prestigeResMult = 1 + (this.data.prestigeLevels.p_research || 0) * 0.3;
+    const sectorResMult = (sectorMod.researchMult || 1) * doctrineResMult * prestigeResMult * (1 + (this.data.megastructureStage || 0) * 0.25);
 
     for (const mod of MODULES) {
       const count = this.data.modules[mod.id] || 0;
@@ -369,10 +373,15 @@ export class GameState {
     this.data.research += rGain;
   }
 
+  getModuleDiscount() {
+    const lvl = this.data.prestigeLevels.p_discount || 0;
+    return Math.max(0.5, 1 - lvl * 0.06);
+  }
+
   getModuleCost(mod, qty = 1) {
     const owned = this.data.modules[mod.id] || 0;
     const r = mod.costScale;
-    const first = mod.baseCost * Math.pow(r, owned);
+    const first = mod.baseCost * Math.pow(r, owned) * this.getModuleDiscount();
     if (qty === 1) return Math.floor(first);
     return Math.floor(first * ((Math.pow(r, qty) - 1) / (r - 1)));
   }
@@ -380,7 +389,7 @@ export class GameState {
   getMaxAffordable(mod) {
     const owned = this.data.modules[mod.id] || 0;
     const r = mod.costScale;
-    const first = mod.baseCost * Math.pow(r, owned);
+    const first = mod.baseCost * Math.pow(r, owned) * this.getModuleDiscount();
     if (this.data.credits < first) return 0;
     const maxN = Math.floor(Math.log(1 + (this.data.credits * (r - 1)) / first) / Math.log(r));
     return Math.max(1, maxN);
@@ -439,6 +448,9 @@ export class GameState {
     this.data.ore -= st.ore;
     this.data.research -= st.research;
     this.data.megastructureStage = (this.data.megastructureStage || 0) + 1;
+    if (this.data.megastructureStage >= MEGASTRUCTURE_STAGES.length) {
+      this.data.megaCompleted = (this.data.megaCompleted || 0) + 1;
+    }
     this.recalculateRates();
     return st;
   }
@@ -463,7 +475,7 @@ export class GameState {
   }
 
   getPrestigeThreshold() {
-    return 50000 * Math.pow(2.5, this.data.sector);
+    return 100000 * Math.pow(3.2, this.data.sector);
   }
 
   getPendingDarkMatter() {

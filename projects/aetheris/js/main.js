@@ -18,12 +18,14 @@ const renderer = new SpaceRenderer(canvas, state, (isComet, isAnomaly = false, i
   if (!isAutoTurret) ui.hideTapHint();
 
   if (isBossDefeat) {
-    const cBonus = Math.max(300, state.rates.credits * 35);
-    const rBonus = Math.max(25, Math.floor(20 + state.rates.research * 12));
+    const bossMult = state.hasTech('boss_hunter') ? 1.5 : 1;
+    const cBonus = Math.max(300, state.rates.credits * 35) * bossMult;
+    const rBonus = Math.max(25, Math.floor((20 + state.rates.research * 12) * bossMult));
     state.data.credits += cBonus;
     state.data.sectorCredits += cBonus;
     state.data.lifetimeCredits += cBonus;
     state.data.research += rBonus;
+    state.data.bossKills = (state.data.bossKills || 0) + 1;
     state.data.eventBoostUntil = Date.now() + 25000;
     if (state.data.sector >= 1) {
       state.data.darkMatter += 1;
@@ -110,9 +112,8 @@ function gameLoop(now) {
     ui.updateHUD();
 
     // Zkontroluj nově odemčené moduly v záložce Stanice
-    const currentUnlocked = (state.data.sectorCredits >= 250 ? 1 : 0) +
-      (state.data.sectorCredits >= 1000 ? 1 : 0) +
-      (state.data.sectorCredits >= 4000 ? 1 : 0);
+    const thresholds = [250, 1000, 4000, 35000, 350000, 2500000, 25000000];
+    const currentUnlocked = thresholds.filter((t) => state.data.sectorCredits >= t).length;
     if (currentUnlocked !== lastUnlockedCount) {
       lastUnlockedCount = currentUnlocked;
       if (ui.activeTab === 'station') ui.renderTab();

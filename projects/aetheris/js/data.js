@@ -95,6 +95,51 @@ export const MODULES = [
     energyDelta: -28,
     outputs: { credits: 145, research: 3.5 },
     unlockAt: 4000
+  },
+  {
+    id: 'cruiser',
+    name: 'Těžební křižník',
+    icon: '🚢',
+    desc: 'Těžká průmyslová loď vybavená hlubinnými lasery, která drtí celé asteroidy.',
+    baseCost: 55000,
+    costScale: 1.21,
+    energyDelta: -65,
+    outputs: { credits: 650, ore: 18 },
+    unlockAt: 35000
+  },
+  {
+    id: 'antimatter',
+    name: 'Antihmotový reaktor',
+    icon: '🌀',
+    desc: 'Anihilace částic uvolňuje obrovské množství energie a stabilizuje chod stanice.',
+    baseCost: 550000,
+    costScale: 1.22,
+    energyDelta: 480,
+    outputs: { credits: 3600, research: 14 },
+    unlockAt: 350000
+  },
+  {
+    id: 'exchange',
+    name: 'Galaktická burza',
+    icon: '🏛️',
+    desc: 'Mezihvězdné obchodní centrum propojující trhy napříč sektory.',
+    baseCost: 4500000,
+    costScale: 1.23,
+    energyDelta: -180,
+    outputs: { credits: 24000, research: 45 },
+    oreInput: 10,
+    unlockAt: 2500000
+  },
+  {
+    id: 'dyson',
+    name: 'Dysonův kolektor',
+    icon: '🌟',
+    desc: 'Gigantická struktura obepínající blízkou hvězdu pro neomezené čerpání energie.',
+    baseCost: 45000000,
+    costScale: 1.24,
+    energyDelta: 2800,
+    outputs: { credits: 160000, research: 160 },
+    unlockAt: 25000000
   }
 ];
 
@@ -178,6 +223,70 @@ export const RESEARCH_TREE = [
     desc: 'Zvyšuje zisk Temné hmoty při Hyperprostorovém skoku o +25 %.',
     cost: 2400,
     effect: { type: 'dmGainMult', value: 1.25 }
+  },
+  {
+    id: 'turret_mk2',
+    name: 'Obranná věž Mk.II',
+    icon: '🔫',
+    desc: 'Autopilot obranné věže střílí 2× rychleji (každou 1 s).',
+    cost: 3500,
+    effect: { type: 'turretSpeed', value: 2 }
+  },
+  {
+    id: 'cruiser_lasers',
+    name: 'Kvantové vrtačky křižníků',
+    icon: '⛏️',
+    desc: 'Těžební křižníky produkují o +75 % více rudy a kreditů.',
+    cost: 6000,
+    effect: { type: 'moduleMult', target: 'cruiser', value: 1.75 }
+  },
+  {
+    id: 'boss_hunter',
+    name: 'Protipancéřové lasery',
+    icon: '💎',
+    desc: 'Zvyšuje poškození do Boss asteroidů o +100 % a jejich odměny o +50 %.',
+    cost: 10000,
+    effect: { type: 'bossHunter', value: 1.5 }
+  },
+  {
+    id: 'antimatter_core',
+    name: 'Magnetické pole antihmoty',
+    icon: '🧲',
+    desc: 'Antihmotové reaktory generují o +80 % více kreditů a výzkumu.',
+    cost: 18000,
+    effect: { type: 'moduleMult', target: 'antimatter', value: 1.8 }
+  },
+  {
+    id: 'exchange_algo',
+    name: 'Algoritmické obchodování',
+    icon: '📈',
+    desc: 'Galaktické burzy generují o +80 % více kreditů.',
+    cost: 32000,
+    effect: { type: 'moduleMult', target: 'exchange', value: 1.8 }
+  },
+  {
+    id: 'solar_swarm',
+    name: 'Hvězdný energetický roj',
+    icon: '🔆',
+    desc: 'Globální produkce energie vzroste o dalších +50 %.',
+    cost: 55000,
+    effect: { type: 'energyMult', value: 1.5 }
+  },
+  {
+    id: 'dyson_beam',
+    name: 'Přenos hvězdného paprsku',
+    icon: '☀️',
+    desc: 'Dysonovy kolektory produkují o +100 % více kreditů a výzkumu.',
+    cost: 90000,
+    effect: { type: 'moduleMult', target: 'dyson', value: 2 }
+  },
+  {
+    id: 'galactic_network',
+    name: 'Galaktická hyper-síť',
+    icon: '🌐',
+    desc: 'Veškerá produkce kreditů ve stanici vzroste o +75 %.',
+    cost: 150000,
+    effect: { type: 'globalCreditsMult', value: 1.75 }
   }
 ];
 
@@ -217,6 +326,24 @@ export const PRESTIGE_UPGRADES = [
     baseCost: 4,
     costScale: 2,
     maxLevel: 4
+  },
+  {
+    id: 'p_discount',
+    name: 'Kvantová optimalizace',
+    icon: '🏷️',
+    desc: 'Trvale snižuje cenu všech modulů stanice o 6 % za úroveň.',
+    baseCost: 5,
+    costScale: 2.2,
+    maxLevel: 5
+  },
+  {
+    id: 'p_research',
+    name: 'Akcelerátor částic',
+    icon: '🔭',
+    desc: 'Trvale zvyšuje rychlost generování výzkumu o +30 % za úroveň.',
+    baseCost: 4,
+    costScale: 2.0,
+    maxLevel: 6
   }
 ];
 
@@ -370,6 +497,156 @@ export const ACHIEVEMENTS = [
     stat: 'prestigeCount',
     target: 5,
     bonusCredits: 0.30
+  },
+  {
+    id: 'ach_credits_100m',
+    name: 'Hvězdný miliardář',
+    icon: '💎',
+    desc: 'Nashromáždi celkem 100M kreditů.',
+    rewardText: '+25 % k produkci kreditů',
+    stat: 'lifetimeCredits',
+    target: 100000000,
+    bonusCredits: 0.25
+  },
+  {
+    id: 'ach_credits_10b',
+    name: 'Vládce soustavy',
+    icon: '🪐',
+    desc: 'Nashromáždi celkem 10B kreditů.',
+    rewardText: '+35 % k produkci kreditů',
+    stat: 'lifetimeCredits',
+    target: 10000000000,
+    bonusCredits: 0.35
+  },
+  {
+    id: 'ach_credits_1t',
+    name: 'Kosmický hegemon',
+    icon: '🌌',
+    desc: 'Nashromáždi celkem 1T kreditů.',
+    rewardText: '+50 % k produkci kreditů',
+    stat: 'lifetimeCredits',
+    target: 1000000000000,
+    bonusCredits: 0.50
+  },
+  {
+    id: 'ach_tap_1000',
+    name: 'Ničitel pásů',
+    icon: '💥',
+    desc: 'Klikni na 1 000 asteroidů nebo komet.',
+    rewardText: '+20 % k produkci kreditů',
+    stat: 'totalTaps',
+    target: 1000,
+    bonusCredits: 0.20
+  },
+  {
+    id: 'ach_boss_1',
+    name: 'První trofej',
+    icon: '☄️',
+    desc: 'Znič svůj první Boss asteroid.',
+    rewardText: '+10 % k produkci kreditů',
+    stat: 'bossKills',
+    target: 1,
+    bonusCredits: 0.10
+  },
+  {
+    id: 'ach_boss_5',
+    name: 'Lovec titánů',
+    icon: '🛡️',
+    desc: 'Znič 5 Boss asteroidů.',
+    rewardText: '+20 % k produkci kreditů',
+    stat: 'bossKills',
+    target: 5,
+    bonusCredits: 0.20
+  },
+  {
+    id: 'ach_boss_15',
+    name: 'Metla vesmíru',
+    icon: '⚔️',
+    desc: 'Znič 15 Boss asteroidů.',
+    rewardText: '+35 % k produkci kreditů',
+    stat: 'bossKills',
+    target: 15,
+    bonusCredits: 0.35
+  },
+  {
+    id: 'ach_mega_1',
+    name: 'Architekt brány',
+    icon: '⛩️',
+    desc: 'Dokonči stavbu Hvězdné brány (5/5).',
+    rewardText: '+30 % k produkci kreditů',
+    stat: 'megaCompleted',
+    target: 1,
+    bonusCredits: 0.30
+  },
+  {
+    id: 'ach_cruiser_5',
+    name: 'Těžební flotila',
+    icon: '🚢',
+    desc: 'Postav 5× Těžební křižník.',
+    rewardText: '+15 % k produkci kreditů',
+    moduleId: 'cruiser',
+    target: 5,
+    bonusCredits: 0.15
+  },
+  {
+    id: 'ach_antimatter_3',
+    name: 'Pán antihmoty',
+    icon: '🌀',
+    desc: 'Postav 3× Antihmotový reaktor.',
+    rewardText: '+15 % k produkci kreditů',
+    moduleId: 'antimatter',
+    target: 3,
+    bonusCredits: 0.15
+  },
+  {
+    id: 'ach_exchange_3',
+    name: 'Wall Street galaxie',
+    icon: '🏛️',
+    desc: 'Postav 3× Galaktická burza.',
+    rewardText: '+20 % k produkci kreditů',
+    moduleId: 'exchange',
+    target: 3,
+    bonusCredits: 0.20
+  },
+  {
+    id: 'ach_dyson_1',
+    name: 'Síla hvězdy',
+    icon: '🌟',
+    desc: 'Postav svůj první Dysonův kolektor.',
+    rewardText: '+25 % k produkci kreditů',
+    moduleId: 'dyson',
+    target: 1,
+    bonusCredits: 0.25
+  },
+  {
+    id: 'ach_tech_18',
+    name: 'Absolutní vědění',
+    icon: '🧠',
+    desc: 'Odemkni všech 18 technologií v jednom sektoru.',
+    rewardText: '+40 % k produkci kreditů',
+    stat: 'researchCount',
+    target: 18,
+    bonusCredits: 0.40
+  },
+  {
+    id: 'ach_prestige_10',
+    name: 'Průzkumník hlubin',
+    icon: '🚀',
+    desc: 'Proveď 10 Hyperprostorových skoků.',
+    rewardText: '+40 % k produkci kreditů',
+    stat: 'prestigeCount',
+    target: 10,
+    bonusCredits: 0.40
+  },
+  {
+    id: 'ach_prestige_15',
+    name: 'Nesmrtelný kolonizátor',
+    icon: '👑',
+    desc: 'Proveď 15 Hyperprostorových skoků.',
+    rewardText: '+60 % k produkci kreditů',
+    stat: 'prestigeCount',
+    target: 15,
+    bonusCredits: 0.60
   }
 ];
 
