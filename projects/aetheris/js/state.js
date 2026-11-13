@@ -1,4 +1,4 @@
-import { MODULES, RESEARCH_TREE, PRESTIGE_UPGRADES, ACHIEVEMENTS, MISSIONS, getSectorInfo } from './data.js';
+import { MODULES, RESEARCH_TREE, PRESTIGE_UPGRADES, ACHIEVEMENTS, MISSIONS, MODULE_MILESTONES, MEGASTRUCTURE_STAGES, getSectorInfo } from './data.js';
 
 const SAVE_KEY = 'aetheris_tycoon_save_v1';
 
@@ -40,6 +40,8 @@ export function createInitialState() {
     prestigeLevels,
     achievements: [],
     missionIndex: 0,
+    doctrine: null,
+    megastructureStage: 0,
     soundEnabled: true,
     musicEnabled: true,
     lastSavedAt: Date.now(),
@@ -208,13 +210,41 @@ export class GameState {
     let mult = this.getDarkMatterMultiplier() * this.getAchievementBonus() * this.getOverclockMultiplier() * this.getEventMultiplier();
     if (this.hasTech('hyper_logistics')) mult *= 1.5;
     if (sectorMod.creditsMult) mult *= sectorMod.creditsMult;
+    mult *= 1 + (this.data.megastructureStage || 0) * 0.25;
     // Mírný sektorový bonus za postup
     mult *= 1 + this.data.sector * 0.2;
     return mult;
   }
 
+  getModuleMilestoneInfo(moduleId) {
+    const count = this.data.modules[moduleId] || 0;
+    let reached = 0;
+    let prevTarget = 0;
+    let nextTarget = MODULE_MILESTONES[MODULE_MILESTONES.length - 1];
+    for (const m of MODULE_MILESTONES) {
+      if (count >= m) {
+        reached += 1;
+        prevTarget = m;
+      } else {
+        nextTarget = m;
+        break;
+      }
+    }
+    return {
+      count,
+      reached,
+      mult: Math.pow(2, reached),
+      prevTarget,
+      nextTarget,
+      maxed: count >= MODULE_MILESTONES[MODULE_MILESTONES.length - 1]
+    };
+  }
+
   getModuleMultiplier(moduleId) {
-    let mult = 1;
+    let mult = this.getModuleMilestoneInfo(moduleId).mult;
+    if (this.data.doctrine === 'mining' && (moduleId === 'drone' || moduleId === 'refinery')) {
+      mult *= 1.4;
+    }
     for (const techId of this.data.researched) {
       const tech = RESEARCH_TREE.find((t) => t.id === techId);
       if (tech && tech.effect.type === 'moduleMult' && tech.effect.target === moduleId) {
@@ -224,10 +254,15 @@ export class GameState {
     return mult;
   }
 
+  getTechCost(tech) {
+    return this.data.doctrine === 'science' ? Math.floor(tech.cost * 0.8) : tech.cost;
+  }
+
   getTapReward() {
     let base = 4 + this.rates.credits * 0.12 + Math.max(0, this.rates.ore) * 0.25;
     if (this.hasTech('laser_focus')) base *= 2;
     if (this.hasTech('auto_salvage')) base *= 2;
+    if (this.data.doctrine === 'hunter') base *= 1.8;
     base *= this.getDarkMatterMultiplier();
 
     const critLvl = this.data.prestigeLevels.p_crit || 0;
@@ -249,7 +284,8 @@ export class GameState {
     const energyTechMult = (this.hasTech('solar_nano') ? 1.35 : 1) * (sectorMod.energyMult || 1);
     const oreSaveMult = this.hasTech('plasma_recycle') ? 0.5 : 1;
     const sectorOreMult = sectorMod.oreMult || 1;
-    const sectorResMult = sectorMod.researchMult || 1;
+    const doctrineResMult = this.data.doctrine === 'science' ? 1.5 : this.data.doctrine === 'mining' ? 0.85 : 1;
+    const sectorResMult = (sectorMod.researchMult || 1) * doctrineResMult * (1 + (this.data.megastructureStage || 0) * 0.25);
 
     for (const mod of MODULES) {
       const count = this.data.modules[mod.id] || 0;
@@ -367,12 +403,44 @@ export class GameState {
   buyResearch(techId) {
     if (this.hasTech(techId)) return false;
     const tech = RESEARCH_TREE.find((t) => t.id === techId);
-    if (!tech || this.data.research < tech.cost) return false;
+    const cost = tech ? this.getTechCost(tech) : 0;
+    if (!tech || this.data.research < cost) return false;
 
-    this.data.research -= tech.cost;
+    this.data.research -= cost;
     this.data.researched.push(techId);
     this.recalculateRates();
     return true;
+  }
+
+  getMegastructureNextStage() {
+    const idx = this.data.megastructureStage || 0;
+    if (idx >= MEGASTRUCTURE_STAGES.length) return null;
+    const base = MEGASTRUCTURE_STAGES[idx];
+    const scale = Math.pow(1.6, this.data.sector);
+    return {
+      index: idx,
+      name: base.name,
+      credits: Math.floor(base.credits * scale),
+      ore: Math.floor(base.ore * scale),
+      research: Math.floor(base.research * (1 + this.data.sector * 0.4))
+    };
+  }
+
+  canBuildMegastructure() {
+    const st = this.getMegastructureNextStage();
+    if (!st) return false;
+    return this.data.credits >= st.credits && this.data.ore >= st.ore && this.data.research >= st.research;
+  }
+
+  buildMegastructureStage() {
+    const st = this.getMegastructureNextStage();
+    if (!st || !this.canBuildMegastructure()) return null;
+    this.data.credits -= st.credits;
+    this.data.ore -= st.ore;
+    this.data.research -= st.research;
+    this.data.megastructureStage = (this.data.megastructureStage || 0) + 1;
+    this.recalculateRates();
+    return st;
   }
 
   getPrestigeUpgradeCost(upg) {
@@ -421,6 +489,8 @@ export class GameState {
     this.data.sectorCredits = this.data.credits;
     this.data.sectorTaps = 0;
     this.data.missionIndex = 0;
+    this.data.doctrine = null;
+    this.data.megastructureStage = 0;
     this.data.researched = [];
 
     MODULES.forEach((m) => {

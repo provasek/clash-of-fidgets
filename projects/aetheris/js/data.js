@@ -373,6 +373,37 @@ export const ACHIEVEMENTS = [
   }
 ];
 
+export const MODULE_MILESTONES = [10, 25, 50, 100, 200];
+
+export const DOCTRINES = [
+  {
+    id: 'mining',
+    name: 'Těžební kartel',
+    icon: '⛏️',
+    desc: '+40 % produkce dronů a rafinerií, -15 % rychlost výzkumu.'
+  },
+  {
+    id: 'science',
+    name: 'Vědecká akademie',
+    icon: '🔬',
+    desc: '+50 % rychlost výzkumu a -20 % cena technologií.'
+  },
+  {
+    id: 'hunter',
+    name: 'Lovec anomálií',
+    icon: '☄️',
+    desc: '+80 % zisk z ručního ťukání, komet a kvantových anomálií.'
+  }
+];
+
+export const MEGASTRUCTURE_STAGES = [
+  { name: 'Základní prstenec', credits: 8000, ore: 600, research: 120 },
+  { name: 'Gravitační kotvy', credits: 25000, ore: 1800, research: 320 },
+  { name: 'Plazmové cívky', credits: 75000, ore: 4500, research: 750 },
+  { name: 'Kvantové jádro brány', credits: 220000, ore: 12000, research: 1600 },
+  { name: 'Aktivní Hvězdná brána', credits: 650000, ore: 30000, research: 3200 }
+];
+
 export const MISSIONS = [
   { id: 'm_tap_10', title: 'Průzkum pásu', desc: 'Zasáhni 10 asteroidů nebo komet.', stat: 'sectorTaps', target: 10, rewardCredits: 35, rewardResearch: 5 },
   { id: 'm_drone_3', title: 'Automatizace těžby', desc: 'Vlastni alespoň 3× Těžební drony.', moduleId: 'drone', target: 3, rewardCredits: 65, rewardResearch: 10 },

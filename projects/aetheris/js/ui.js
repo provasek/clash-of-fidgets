@@ -1,4 +1,4 @@
-import { MODULES, RESEARCH_TREE, PRESTIGE_UPGRADES, ACHIEVEMENTS, getSectorName, getSectorInfo } from './data.js';
+import { MODULES, RESEARCH_TREE, PRESTIGE_UPGRADES, ACHIEVEMENTS, DOCTRINES, MEGASTRUCTURE_STAGES, getSectorName, getSectorInfo } from './data.js';
 import { formatNum } from './state.js';
 import { audio } from './audio.js';
 
@@ -139,6 +139,19 @@ export class UIController {
         return;
       }
 
+      const megaBtn = e.target.closest('#btn-build-mega');
+      if (megaBtn) {
+        const built = this.state.buildMegastructureStage();
+        if (built) {
+          audio.playAchievement();
+          if (navigator.vibrate) navigator.vibrate(25);
+          this.showToast('🏛️', `Megastruktura: ${built.name}`, '+25 % ke globální produkci v sektoru!');
+          this.renderTab();
+          this.updateHUD();
+        }
+        return;
+      }
+
       const jumpBtn = e.target.closest('#btn-do-prestige');
       if (jumpBtn) {
         const gain = this.state.doPrestige();
@@ -149,6 +162,7 @@ export class UIController {
           this.showToast('🌌', 'Hyperprostorový skok!', `Získáno +${formatNum(gain)} ✨ Temné hmoty`);
           this.renderTab();
           this.updateHUD();
+          this.showDoctrineModal();
         }
       }
     });
@@ -200,7 +214,7 @@ export class UIController {
     }
 
     // Odznaky v navigaci
-    const canTech = RESEARCH_TREE.some((t) => !this.state.hasTech(t.id) && d.research >= t.cost);
+    const canTech = RESEARCH_TREE.some((t) => !this.state.hasTech(t.id) && d.research >= this.state.getTechCost(t));
     this.els.badgeResearch.classList.toggle('hidden', !canTech);
 
     const pendingDm = this.state.getPendingDarkMatter();
@@ -226,12 +240,19 @@ export class UIController {
       RESEARCH_TREE.forEach((tech) => {
         const btn = this.els.drawerContent.querySelector(`[data-buy-tech="${tech.id}"]`);
         if (!btn) return;
-        const canBuy = this.state.data.research >= tech.cost;
+        const canBuy = this.state.data.research >= this.state.getTechCost(tech);
         btn.disabled = !canBuy;
         const card = btn.closest('.item-card');
         if (card) card.classList.toggle('affordable', canBuy);
       });
     } else if (this.activeTab === 'prestige') {
+      const megaBtn = this.els.drawerContent.querySelector('#btn-build-mega');
+      if (megaBtn) {
+        const canMega = this.state.canBuildMegastructure();
+        megaBtn.disabled = !canMega;
+        const card = megaBtn.closest('.item-card');
+        if (card) card.classList.toggle('affordable', canMega);
+      }
       const jumpBtn = this.els.drawerContent.querySelector('#btn-do-prestige');
       const gainEl = this.els.drawerContent.querySelector('#prestige-pending-val');
       if (jumpBtn && gainEl) {
@@ -269,8 +290,10 @@ export class UIController {
     const mission = this.state.getCurrentMission();
     const mProg = this.state.getMissionProgress(mission);
     const sectorInfo = getSectorInfo(d.sector);
-
-    const missionCard = `
+    const docInfo = d.doctrine ? DOCTRINES.find((doc) => doc.id === d.doctrine) : null;
+    const missionCard = (() => {
+      const docBadge = docInfo ? ` • ${docInfo.icon} ${docInfo.name}` : '';
+      return `
       <div class="item-card ${mProg.done ? 'completed' : ''}" style="border-color: rgba(56, 189, 248, 0.3);">
         <div class="item-icon-box">🎯</div>
         <div class="item-body">
@@ -288,9 +311,10 @@ export class UIController {
         }
       </div>
       <div style="font-size: 0.7rem; color: var(--text-muted); padding: 0 4px;">
-        🌌 ${sectorInfo.desc}
+        🌌 ${sectorInfo.desc}${docBadge}
       </div>
     `;
+    })();
 
     const html = MODULES.map((mod) => {
       const count = d.modules[mod.id] || 0;
@@ -318,6 +342,10 @@ export class UIController {
       if (mod.energyDelta >= 0) stats.push(`+${mod.energyDelta} ⚡`);
       else stats.push(`<span class="stat-neg">${mod.energyDelta} ⚡</span>`);
 
+      const ms = this.state.getModuleMilestoneInfo(mod.id);
+      const msSpan = ms.nextTarget - ms.prevTarget;
+      const msPct = ms.maxed ? 100 : Math.min(100, Math.round(((count - ms.prevTarget) / msSpan) * 100));
+
       return `
         <div class="item-card ${canBuy ? 'affordable' : ''}">
           <div class="item-icon-box">
@@ -325,9 +353,15 @@ export class UIController {
             <span class="item-level-badge">${count}</span>
           </div>
           <div class="item-body">
-            <div class="item-title">${mod.name}</div>
+            <div class="item-title">
+              ${mod.name}
+              ${ms.mult > 1 ? `<span style="font-size:0.65rem; color:var(--accent-gold); background:rgba(251,191,36,0.15); padding:1px 5px; border-radius:6px;">×${ms.mult}</span>` : ''}
+            </div>
             <div class="item-desc">${mod.desc}</div>
             <div class="item-stats">${stats.join(' • ')}</div>
+            <div class="progress-track" style="height:4px; margin-top:5px;" title="Další milník (2× výkon): ${ms.maxed ? 'MAX' : ms.nextTarget + ' ks'}">
+              <div class="progress-fill" style="width:${msPct}%"></div>
+            </div>
           </div>
           <button class="buy-btn" data-buy-module="${mod.id}" ${canBuy ? '' : 'disabled'}>
             <span>${formatNum(cost)} 🪙</span>
@@ -344,7 +378,8 @@ export class UIController {
     const d = this.state.data;
     const html = RESEARCH_TREE.map((tech) => {
       const done = this.state.hasTech(tech.id);
-      const canBuy = !done && d.research >= tech.cost;
+      const cost = this.state.getTechCost(tech);
+      const canBuy = !done && d.research >= cost;
 
       return `
         <div class="item-card ${done ? 'completed' : canBuy ? 'affordable' : ''}">
@@ -357,7 +392,7 @@ export class UIController {
             done
               ? `<span style="color: var(--accent-emerald); font-size: 0.78rem; font-weight: 700; padding: 0 8px;">✓ Hotovo</span>`
               : `<button class="buy-btn" data-buy-tech="${tech.id}" ${canBuy ? '' : 'disabled'}>
-                   <span>${formatNum(tech.cost)} 🔬</span>
+                   <span>${formatNum(cost)} 🔬</span>
                    <span class="buy-qty">Vyzkoumat</span>
                  </button>`
           }
@@ -450,7 +485,63 @@ export class UIController {
       `;
     }).join('');
 
-    this.els.drawerContent.innerHTML = hero + upgrades;
+    const megaNext = this.state.getMegastructureNextStage();
+    const megaBuilt = d.megastructureStage || 0;
+    const canMega = this.state.canBuildMegastructure();
+    const megaCard = `
+      <div class="item-card ${megaBuilt >= MEGASTRUCTURE_STAGES.length ? 'completed' : canMega ? 'affordable' : ''}">
+        <div class="item-icon-box">
+          <span>🏛️</span>
+          <span class="item-level-badge">${megaBuilt}/5</span>
+        </div>
+        <div class="item-body">
+          <div class="item-title">Megastruktura: Hvězdná brána</div>
+          <div class="item-desc">${megaNext ? `Další fáze: ${megaNext.name} (+25 % produkce)` : 'Hvězdná brána dokončena! (+125 % produkce)'}</div>
+          ${megaNext ? `<div class="item-stats">${formatNum(megaNext.credits)} 🪙 • ${formatNum(megaNext.ore)} 🪨 • ${formatNum(megaNext.research)} 🔬</div>` : ''}
+        </div>
+        ${
+          megaNext
+            ? `<button id="btn-build-mega" class="buy-btn" ${canMega ? '' : 'disabled'}>
+                 <span>Postavit</span>
+                 <span class="buy-qty">Fáze ${megaBuilt + 1}/5</span>
+               </button>`
+            : `<span style="color: var(--accent-emerald); font-size: 0.76rem; font-weight: 700; padding: 0 8px;">✓ Aktivní</span>`
+        }
+      </div>
+    `;
+
+    this.els.drawerContent.innerHTML = hero + megaCard + upgrades;
+  }
+
+  showDoctrineModal() {
+    this.els.modalTitle.textContent = `🚀 Doktrína pro Sektor ${this.state.data.sector + 1}`;
+    this.els.modalBody.innerHTML = `
+      <p>Vyber specializaci kolonie pro tento sektor:</p>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        ${DOCTRINES.map((doc) => `
+          <button class="item-card affordable" data-pick-doctrine="${doc.id}" style="text-align:left; cursor:pointer; width:100%;">
+            <div class="item-icon-box">${doc.icon}</div>
+            <div class="item-body">
+              <div class="item-title">${doc.name}</div>
+              <div class="item-desc">${doc.desc}</div>
+            </div>
+          </button>
+        `).join('')}
+      </div>
+    `;
+    this.els.modalBackdrop.classList.remove('hidden');
+
+    this.els.modalBody.querySelectorAll('[data-pick-doctrine]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.state.data.doctrine = btn.dataset.pickDoctrine;
+        this.state.recalculateRates();
+        this.state.save();
+        audio.playBuy();
+        this.closeModal();
+        this.renderTab();
+        this.updateHUD();
+      });
+    });
   }
 
   showToast(icon, title, desc) {

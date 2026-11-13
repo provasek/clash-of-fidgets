@@ -14,8 +14,25 @@ window.addEventListener('pointerdown', () => audio.init(), { once: true });
 const ui = new UIController(state);
 
 const canvas = document.getElementById('game-canvas');
-const renderer = new SpaceRenderer(canvas, state, (isComet, isAnomaly = false, isAutoTurret = false) => {
+const renderer = new SpaceRenderer(canvas, state, (isComet, isAnomaly = false, isAutoTurret = false, isBossDefeat = false) => {
   if (!isAutoTurret) ui.hideTapHint();
+
+  if (isBossDefeat) {
+    const cBonus = Math.max(300, state.rates.credits * 35);
+    const rBonus = Math.max(25, Math.floor(20 + state.rates.research * 12));
+    state.data.credits += cBonus;
+    state.data.sectorCredits += cBonus;
+    state.data.lifetimeCredits += cBonus;
+    state.data.research += rBonus;
+    state.data.eventBoostUntil = Date.now() + 25000;
+    if (state.data.sector >= 1) {
+      state.data.darkMatter += 1;
+    }
+    audio.playAchievement();
+    if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
+    ui.showToast('💥', 'TITANOVÉ JÁDRO ZNIČENO!', `+${Math.floor(cBonus)} 🪙, +${rBonus} 🔬${state.data.sector >= 1 ? ', +1 ✨' : ''}`);
+    return { credits: cBonus, ore: 0, research: rBonus, isCrit: true };
+  }
 
   if (isAnomaly) {
     const resGain = Math.max(12, Math.floor(15 + state.rates.research * 8));

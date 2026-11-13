@@ -28,6 +28,7 @@ export class SpaceRenderer {
     this.anomalies = [];
     this.turretTimer = 0;
     this.warpFlash = 0;
+    this.killsSinceBoss = 0;
 
     this.initStars();
     this.resize();
@@ -121,7 +122,14 @@ export class SpaceRenderer {
         this.addFloatingText(a.x, a.y - 10, label, reward.isCrit ? '#fbbf24' : '#f8fafc', reward.isCrit);
 
         if (a.hp <= 0) {
+          const wasBoss = a.isBoss;
           this.asteroids.splice(i, 1);
+          if (wasBoss) {
+            this.spawnBurst(a.x, a.y, '#fb7185', 32);
+            this.onAsteroidTap(false, false, false, true);
+          } else {
+            this.killsSinceBoss += 1;
+          }
           this.spawnAsteroid(false);
         }
         return;
@@ -137,7 +145,11 @@ export class SpaceRenderer {
   }
 
   spawnAsteroid(randomPos = false) {
-    const isComet = Math.random() < (this.state.hasTech('auto_salvage') ? 0.24 : 0.13);
+    const hasBoss = this.asteroids.some((a) => a.isBoss);
+    const isBoss = !randomPos && !hasBoss && this.killsSinceBoss >= 18;
+    if (isBoss) this.killsSinceBoss = 0;
+
+    const isComet = !isBoss && Math.random() < (this.state.hasTech('auto_salvage') ? 0.24 : 0.13);
     const side = Math.floor(Math.random() * 4);
     let x, y, vx, vy;
     const margin = 30;
@@ -163,14 +175,15 @@ export class SpaceRenderer {
       y = this.height + margin;
     }
 
-    const angle = Math.atan2(this.height / 2 - y, this.width / 2 - x) + (Math.random() - 0.5) * 1.2;
-    const speed = isComet ? 46 + Math.random() * 25 : 14 + Math.random() * 18;
+    const angle = Math.atan2(this.height / 2 - y, this.width / 2 - x) + (Math.random() - 0.5) * (isBoss ? 0.4 : 1.2);
+    const speed = isBoss ? 8 : isComet ? 46 + Math.random() * 25 : 14 + Math.random() * 18;
     vx = Math.cos(angle) * speed;
     vy = Math.sin(angle) * speed;
 
-    const radius = isComet ? 13 : 14 + Math.random() * 10;
+    const radius = isBoss ? 25 : isComet ? 13 : 14 + Math.random() * 10;
+    const maxHp = isBoss ? 24 : isComet ? 1 : 2 + Math.floor(Math.random() * 2);
     const verts = [];
-    const count = 8;
+    const count = isBoss ? 10 : 8;
     for (let i = 0; i < count; i++) {
       verts.push(0.75 + Math.random() * 0.4);
     }
@@ -182,9 +195,11 @@ export class SpaceRenderer {
       vy,
       radius,
       rot: Math.random() * Math.PI * 2,
-      rotSpeed: (Math.random() - 0.5) * 1.4,
-      hp: isComet ? 1 : 2 + Math.floor(Math.random() * 2),
+      rotSpeed: (Math.random() - 0.5) * (isBoss ? 0.4 : 1.4),
+      hp: maxHp,
+      maxHp,
       isComet,
+      isBoss,
       verts
     });
   }
@@ -448,7 +463,12 @@ export class SpaceRenderer {
       ctx.translate(a.x, a.y);
       ctx.rotate(a.rot);
 
-      if (a.isComet) {
+      if (a.isBoss) {
+        ctx.shadowColor = '#fb7185';
+        ctx.shadowBlur = 18;
+        ctx.fillStyle = '#4c0519';
+        ctx.strokeStyle = '#fb7185';
+      } else if (a.isComet) {
         ctx.shadowColor = '#fbbf24';
         ctx.shadowBlur = 14;
         ctx.fillStyle = '#fde68a';
@@ -474,12 +494,23 @@ export class SpaceRenderer {
 
       // Kráter na asteroidu
       if (!a.isComet) {
-        ctx.fillStyle = '#334155';
+        ctx.fillStyle = a.isBoss ? '#881337' : '#334155';
         ctx.beginPath();
         ctx.arc(-a.radius * 0.25, -a.radius * 0.15, a.radius * 0.22, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
+
+      // HP bar pro Boss asteroid
+      if (a.isBoss) {
+        const bw = 42;
+        const bx = a.x - bw / 2;
+        const by = a.y - a.radius - 12;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.fillRect(bx, by, bw, 5);
+        ctx.fillStyle = '#fb7185';
+        ctx.fillRect(bx, by, bw * Math.max(0, a.hp / a.maxHp), 5);
+      }
     }
 
     // 8. Těžební lasery
@@ -534,6 +565,25 @@ export class SpaceRenderer {
 
     ctx.save();
     ctx.translate(cx, cy);
+
+    // Megastruktura: Hvězdná brána (5 segmentů kolem stanice)
+    const megaStage = this.state.data.megastructureStage || 0;
+    if (megaStage > 0) {
+      ctx.save();
+      ctx.rotate(-this.time * 0.22);
+      for (let s = 0; s < megaStage; s++) {
+        const startA = (s / 5) * Math.PI * 2 + 0.08;
+        const endA = ((s + 1) / 5) * Math.PI * 2 - 0.08;
+        ctx.strokeStyle = megaStage === 5 ? '#34d399' : '#fbbf24';
+        ctx.lineWidth = 3.5;
+        ctx.shadowColor = megaStage === 5 ? '#34d399' : '#fbbf24';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(0, 0, 56, startA, endA);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     // Fúzní prstenec (pokud existuje reaktor)
     if ((mods.reactor || 0) > 0) {
