@@ -31,6 +31,9 @@
         </div>
         <div class="header-right">
             <div id="live-clock" class="digital-clock">00:00:00</div>
+            <button id="btn-tunnel-toggle" class="hud-btn-mini" title="Spustit / Zastavit Cloudflare HTTPS tunel">
+                🌐 TUNNEL
+            </button>
             <button id="btn-system-update" class="hud-btn-mini" title="Stáhnout aktualizace z GitHubu a restartovat">
                 ↻ UPDATE
             </button>
@@ -390,6 +393,10 @@
                 <div class="config-field">
                     <label for="input-news-topics">ZÁJMY PRO BRIEFING & ZPRÁVY (ODDĚLENÉ ČÁRKOU):</label>
                     <input type="text" id="input-news-topics" placeholder="AI, technologie, Česko, svět" autocomplete="off">
+                </div>
+                <div class="config-field">
+                    <label for="input-access-pin">BEZPEČNOSTNÍ PIN (PRO TUNEL / VZDÁLENÝ WEB, LOKÁLNĚ SE NEPTÁ):</label>
+                    <input type="password" id="input-access-pin" placeholder="Volitelný PIN (např. 4321)" autocomplete="off">
                 </div>
                 <div class="config-field">
                     <label for="input-backend-url">BACKEND URL (JEN PRO PROVASEK.XYZ / MOBIL):</label>

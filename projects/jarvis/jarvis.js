@@ -25,6 +25,28 @@ document.addEventListener("DOMContentLoaded", () => {
         return b ? (b + path) : path;
     }
 
+    // Transparently attach X-Jarvis-Pin header and prompt once if 401 PIN required
+    const _origFetch = window.fetch.bind(window);
+    let _pinPromptPending = false;
+    window.fetch = async function(input, init = {}) {
+        const pin = localStorage.getItem("jarvis_access_pin") || "";
+        if (pin) {
+            init.headers = Object.assign({}, init.headers || {}, { "X-Jarvis-Pin": pin });
+        }
+        const res = await _origFetch(input, init);
+        if (res.status === 401 && !_pinPromptPending) {
+            _pinPromptPending = true;
+            const entered = window.prompt("🔐 J.A.R.V.I.S. je chráněn PINem. Zadejte přístupový PIN:");
+            _pinPromptPending = false;
+            if (entered !== null && entered.trim()) {
+                localStorage.setItem("jarvis_access_pin", entered.trim());
+                init.headers = Object.assign({}, init.headers || {}, { "X-Jarvis-Pin": entered.trim() });
+                return _origFetch(input, init);
+            }
+        }
+        return res;
+    };
+
     // DOM Elements
     const canvas = document.getElementById("arcReactorCanvas");
     const ctx = canvas.getContext("2d");
@@ -1307,6 +1329,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const hueUser = inputHueUser ? inputHueUser.value.trim() : "";
         const hueGroup = inputHueGroup ? inputHueGroup.value.trim() : "";
         const newsTopics = inputNewsTopics ? inputNewsTopics.value.trim() : "";
+        const inputAccessPin = document.getElementById("input-access-pin");
+        const accessPin = inputAccessPin ? inputAccessPin.value.trim() : "";
 
         const payload = {};
         if (apiKey) payload.gemini_api_key = apiKey;
@@ -1322,6 +1346,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (hueUser) payload.hue_username = hueUser;
         if (inputHueGroup && hueGroup) payload.hue_group_id = hueGroup;
         if (inputNewsTopics && newsTopics) payload.news_topics = newsTopics;
+        if (accessPin) {
+            payload.access_pin = accessPin;
+            localStorage.setItem("jarvis_access_pin", accessPin);
+        }
 
         try {
             const res = await fetch(apiUrl("/api/config"), {
@@ -1544,6 +1572,40 @@ document.addEventListener("DOMContentLoaded", () => {
         hueBriSlider.addEventListener("change", () => {
             clearTimeout(hueBriTimer);
             sendBri();
+        });
+    }
+
+    const btnTunnelToggle = document.getElementById("btn-tunnel-toggle");
+    let tunnelRunning = false;
+    if (btnTunnelToggle) {
+        btnTunnelToggle.addEventListener("click", async () => {
+            getAudioContext();
+            playTone(760, 'sine', 0.08, 0.08);
+            const action = tunnelRunning ? "stop" : "start";
+            btnTunnelToggle.disabled = true;
+            btnTunnelToggle.textContent = action === "start" ? "🌐 ..." : "🌐 ...";
+            try {
+                const res = await fetch(apiUrl("/api/system/tunnel"), {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action })
+                });
+                const data = await res.json();
+                tunnelRunning = !!data.running;
+                btnTunnelToggle.classList.toggle("active", tunnelRunning);
+                btnTunnelToggle.textContent = tunnelRunning ? "🌐 TUNNEL ON" : "🌐 TUNNEL";
+                if (data.url && navigator.clipboard) {
+                    navigator.clipboard.writeText(data.url).catch(() => {});
+                    appendMessage("jarvis", `🌐 Cloudflare HTTPS tunel aktivní (zkopírováno do schránky): ${data.url}`);
+                } else if (data.message) {
+                    appendMessage("jarvis", data.message);
+                }
+            } catch (err) {
+                appendMessage("jarvis", "Nepodařilo se ovládat Cloudflare tunel.");
+                btnTunnelToggle.textContent = "🌐 TUNNEL";
+            } finally {
+                btnTunnelToggle.disabled = false;
+            }
         });
     }
 
