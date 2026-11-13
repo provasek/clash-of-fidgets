@@ -57,7 +57,7 @@ export const MODULES = [
     icon: '🏭',
     desc: 'Tavicí pece mění vytěženou rudu na cenné galaktické kredity.',
     baseCost: 120,
-    costScale: 1.17,
+    costScale: 1.18,
     energyDelta: -8,
     outputs: { credits: 6.5 },
     oreInput: 1.4,
@@ -69,7 +69,7 @@ export const MODULES = [
     icon: '🔬',
     desc: 'Analyzuje mimozemské izotopy a generuje výzkumné body.',
     baseCost: 480,
-    costScale: 1.18,
+    costScale: 1.19,
     energyDelta: -14,
     outputs: { research: 1.2, credits: 10 },
     unlockAt: 250
@@ -80,7 +80,7 @@ export const MODULES = [
     icon: '⚛️',
     desc: 'Mohutný zdroj čisté energie pro pokročilé moduly stanice.',
     baseCost: 1800,
-    costScale: 1.19,
+    costScale: 1.20,
     energyDelta: 90,
     outputs: { credits: 32 },
     unlockAt: 1000
@@ -91,7 +91,7 @@ export const MODULES = [
     icon: '🚀',
     desc: 'Přitahuje obchodní konvoje a násobí zisky z prodeje rudy.',
     baseCost: 7500,
-    costScale: 1.20,
+    costScale: 1.22,
     energyDelta: -28,
     outputs: { credits: 145, research: 3.5 },
     unlockAt: 4000
@@ -374,12 +374,12 @@ export const ACHIEVEMENTS = [
 ];
 
 export const MISSIONS = [
-  { id: 'm_tap_10', title: 'Průzkum pásu', desc: 'Zasáhni 10 asteroidů nebo komet.', stat: 'totalTaps', target: 10, rewardCredits: 120, rewardResearch: 8 },
-  { id: 'm_drone_3', title: 'Automatizace těžby', desc: 'Vlastni alespoň 3× Těžební drony.', moduleId: 'drone', target: 3, rewardCredits: 220, rewardResearch: 15 },
-  { id: 'm_refinery_2', title: 'První tavírna', desc: 'Postav 2× Plazmová rafinerie.', moduleId: 'refinery', target: 2, rewardCredits: 450, rewardResearch: 25 },
-  { id: 'm_tap_40', title: 'Ostrá palba', desc: 'Zasáhni celkem 40 asteroidů.', stat: 'totalTaps', target: 40, rewardCredits: 900, rewardResearch: 45 },
-  { id: 'm_lab_2', title: 'Vědecký tým', desc: 'Postav 2× Výzkumná laboratoř.', moduleId: 'lab', target: 2, rewardCredits: 1800, rewardResearch: 80 },
-  { id: 'm_solar_10', title: 'Solární síť', desc: 'Vlastni 10× Solární křídla.', moduleId: 'solar', target: 10, rewardCredits: 3200, rewardResearch: 130 },
-  { id: 'm_reactor_1', title: 'Jádro budoucnosti', desc: 'Postav 1× Fúzní reaktor.', moduleId: 'reactor', target: 1, rewardCredits: 5500, rewardResearch: 220 },
-  { id: 'm_trade_2', title: 'Kvantový obchod', desc: 'Postav 2× Kvantový obchodní uzel.', moduleId: 'tradehub', target: 2, rewardCredits: 15000, rewardResearch: 450 }
+  { id: 'm_tap_10', title: 'Průzkum pásu', desc: 'Zasáhni 10 asteroidů nebo komet.', stat: 'sectorTaps', target: 10, rewardCredits: 35, rewardResearch: 5 },
+  { id: 'm_drone_3', title: 'Automatizace těžby', desc: 'Vlastni alespoň 3× Těžební drony.', moduleId: 'drone', target: 3, rewardCredits: 65, rewardResearch: 10 },
+  { id: 'm_refinery_2', title: 'První tavírna', desc: 'Postav 2× Plazmová rafinerie.', moduleId: 'refinery', target: 2, rewardCredits: 140, rewardResearch: 18 },
+  { id: 'm_tap_40', title: 'Ostrá palba', desc: 'Zasáhni v sektoru 40 asteroidů.', stat: 'sectorTaps', target: 40, rewardCredits: 260, rewardResearch: 30 },
+  { id: 'm_lab_2', title: 'Vědecký tým', desc: 'Postav 2× Výzkumná laboratoř.', moduleId: 'lab', target: 2, rewardCredits: 500, rewardResearch: 55 },
+  { id: 'm_solar_10', title: 'Solární síť', desc: 'Vlastni 10× Solární křídla.', moduleId: 'solar', target: 10, rewardCredits: 900, rewardResearch: 85 },
+  { id: 'm_reactor_1', title: 'Jádro budoucnosti', desc: 'Postav 1× Fúzní reaktor.', moduleId: 'reactor', target: 1, rewardCredits: 1600, rewardResearch: 140 },
+  { id: 'm_trade_2', title: 'Kvantový obchod', desc: 'Postav 2× Kvantový obchodní uzel.', moduleId: 'tradehub', target: 2, rewardCredits: 4000, rewardResearch: 280 }
 ];

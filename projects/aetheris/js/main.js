@@ -45,7 +45,10 @@ const renderer = new SpaceRenderer(canvas, state, (isComet, isAnomaly = false, i
   state.data.sectorCredits += creditsGain;
   state.data.lifetimeCredits += creditsGain;
   state.data.ore += oreGain;
-  if (!isAutoTurret) state.data.totalTaps += 1;
+  if (!isAutoTurret) {
+    state.data.totalTaps += 1;
+    state.data.sectorTaps = (state.data.sectorTaps || 0) + 1;
+  }
 
   if (isComet && Math.random() < 0.45) {
     state.data.eventBoostUntil = Date.now() + 25000;

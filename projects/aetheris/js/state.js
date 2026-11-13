@@ -33,6 +33,7 @@ export function createInitialState() {
     sectorCredits: 0,
     lifetimeCredits: 30,
     totalTaps: 0,
+    sectorTaps: 0,
     prestigeCount: 0,
     modules,
     researched: [],
@@ -168,8 +169,8 @@ export class GameState {
   getEventMultiplier() {
     const now = Date.now();
     let mult = 1;
-    if (now < (this.data.eventBoostUntil || 0)) mult *= 2;
-    if (now < (this.data.overdriveUntil || 0)) mult *= 2;
+    if (now < (this.data.eventBoostUntil || 0)) mult += 0.75;
+    if (now < (this.data.overdriveUntil || 0)) mult += 0.75;
     return mult;
   }
 
@@ -178,9 +179,9 @@ export class GameState {
       this.combo = 0;
       return 1;
     }
-    if (this.combo >= 10) return 3;
-    if (this.combo >= 6) return 2;
-    if (this.combo >= 3) return 1.5;
+    if (this.combo >= 10) return 2.0;
+    if (this.combo >= 6) return 1.5;
+    if (this.combo >= 3) return 1.25;
     return 1;
   }
 
@@ -194,8 +195,9 @@ export class GameState {
     this.comboExpiresAt = now + 2200;
 
     let triggeredOverdrive = false;
-    if (this.combo === 10) {
+    if (this.combo >= 10) {
       this.data.overdriveUntil = now + 10000;
+      this.combo = 0;
       triggeredOverdrive = true;
     }
     return { combo: this.combo, mult: this.getComboMultiplier(), triggeredOverdrive };
@@ -226,7 +228,7 @@ export class GameState {
     let base = 4 + this.rates.credits * 0.12 + Math.max(0, this.rates.ore) * 0.25;
     if (this.hasTech('laser_focus')) base *= 2;
     if (this.hasTech('auto_salvage')) base *= 2;
-    base *= this.getDarkMatterMultiplier() * this.getEventMultiplier();
+    base *= this.getDarkMatterMultiplier();
 
     const critLvl = this.data.prestigeLevels.p_crit || 0;
     const critChance = critLvl > 0 ? 0.15 * critLvl : 0.04;
@@ -393,7 +395,7 @@ export class GameState {
   }
 
   getPrestigeThreshold() {
-    return 15000 * Math.pow(1.85, this.data.sector);
+    return 50000 * Math.pow(2.5, this.data.sector);
   }
 
   getPendingDarkMatter() {
@@ -417,6 +419,8 @@ export class GameState {
     this.data.ore = 10 + starterLvl * 50;
     this.data.research = 0;
     this.data.sectorCredits = this.data.credits;
+    this.data.sectorTaps = 0;
+    this.data.missionIndex = 0;
     this.data.researched = [];
 
     MODULES.forEach((m) => {
@@ -440,16 +444,24 @@ export class GameState {
 
   getCurrentMission() {
     const idx = this.data.missionIndex || 0;
-    if (idx < MISSIONS.length) return MISSIONS[idx];
+    const scale = 1 + this.data.sector * 0.5;
+    if (idx < MISSIONS.length) {
+      const m = MISSIONS[idx];
+      return {
+        ...m,
+        rewardCredits: Math.floor(m.rewardCredits * scale),
+        rewardResearch: Math.floor(m.rewardResearch * (1 + this.data.sector * 0.25))
+      };
+    }
     const loop = idx - MISSIONS.length + 1;
     return {
       id: `m_endless_${idx}`,
       title: `Zakázka sektoru #${loop}`,
-      desc: `Nashromáždi v sektoru celkem ${formatNum(25000 * Math.pow(1.7, loop))} 🪙.`,
+      desc: `Nashromáždi v sektoru celkem ${formatNum(25000 * Math.pow(1.7, loop) * scale)} 🪙.`,
       stat: 'sectorCredits',
-      target: Math.floor(25000 * Math.pow(1.7, loop)),
-      rewardCredits: Math.floor(4000 * Math.pow(1.6, loop)),
-      rewardResearch: Math.floor(150 * Math.pow(1.35, loop))
+      target: Math.floor(25000 * Math.pow(1.7, loop) * scale),
+      rewardCredits: Math.floor(2500 * Math.pow(1.5, loop) * scale),
+      rewardResearch: Math.floor(120 * Math.pow(1.3, loop))
     };
   }
 
