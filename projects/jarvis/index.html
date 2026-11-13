@@ -179,21 +179,30 @@
 
             <!-- HUE LIGHTING DECK -->
             <div class="hue-deck" id="hue-deck">
-                <div class="hue-deck-header">
-                    <span class="hue-deck-title">💡 HUE LIGHTING</span>
-                    <div class="hue-deck-controls-top">
-                        <input type="color" id="hue-color-picker" class="hue-color-input" value="#00e5ff" title="Vlastní barva Hue">
-                        <button type="button" class="hue-btn" data-hue-preset="off" title="Zhasnout Hue">OFF</button>
+                <div class="hue-deck-top">
+                    <span class="hue-deck-title">💡 HUE SPECTRUM</span>
+                    <div class="hue-preset-chips">
+                        <button type="button" class="hue-chip" data-hue-preset="warm">TEPLÁ</button>
+                        <button type="button" class="hue-chip" data-hue-preset="cool">DENNÍ</button>
+                        <button type="button" class="hue-chip" data-hue-preset="jarvis">CYAN</button>
+                        <button type="button" class="hue-chip" data-hue-preset="ironman">STARK</button>
+                        <button type="button" class="hue-chip" data-hue-preset="purple">VIOLET</button>
+                        <button type="button" class="hue-chip hue-chip-party" data-hue-preset="colorloop">LOOP</button>
+                        <button type="button" class="hue-chip hue-chip-off" data-hue-preset="off">OFF</button>
                     </div>
                 </div>
-                <div class="hue-swatches">
-                    <button type="button" class="hue-swatch" data-hue-preset="warm" style="background:#ffb86c;" title="Teplá bílá"></button>
-                    <button type="button" class="hue-swatch" data-hue-preset="cool" style="background:#e0f4ff;" title="Studená bílá"></button>
-                    <button type="button" class="hue-swatch" data-hue-preset="jarvis" style="background:#00e5ff;" title="Jarvis Cyan"></button>
-                    <button type="button" class="hue-swatch" data-hue-preset="ironman" style="background:#ff3300;" title="Iron Man Red"></button>
-                    <button type="button" class="hue-swatch" data-hue-preset="purple" style="background:#a855f7;" title="Fialová"></button>
-                    <button type="button" class="hue-swatch hue-loop" data-hue-preset="colorloop" title="Párty Colorloop">🌈</button>
-                    <input type="range" id="hue-bri-slider" class="hue-bri-slider" min="5" max="254" value="200" title="Jas světel Hue">
+                <div class="hue-sliders-row">
+                    <div class="hue-spectrum-wrap" title="Kliknutím nebo tažením vyberte barvu">
+                        <input type="range" id="hue-spectrum-slider" class="hue-spectrum-slider" min="0" max="360" value="188">
+                        <label class="hue-custom-trigger" title="Vlastní barva">
+                            <span id="hue-active-swatch" class="hue-active-dot" style="background:#00f3ff;"></span>
+                            <input type="color" id="hue-color-picker" value="#00f3ff">
+                        </label>
+                    </div>
+                    <div class="hue-bri-wrap">
+                        <span class="hue-bri-label">JAS <span id="hue-bri-val">79%</span></span>
+                        <input type="range" id="hue-bri-slider" class="hue-bri-slider" min="5" max="254" value="200" title="Jas světel Hue">
+                    </div>
                 </div>
             </div>
 
@@ -204,14 +213,16 @@
 
             <!-- VOICE CONTROLLER -->
             <div class="voice-control-section">
-                <button id="btn-mic" class="hud-mic-btn">
-                    <div class="mic-pulse-ring"></div>
-                    <span id="mic-icon">🎙️</span>
-                    <span id="mic-text">HLASOVÝ VSTUP</span>
-                </button>
-                <button id="btn-wake-toggle" class="proto-btn" style="margin-top: 8px;" title="Pasivní poslech na oslovení 'Jarvisi'">
-                    <span class="btn-bracket">[</span> 👂 WAKE "JARVISI": OFF <span class="btn-bracket">]</span>
-                </button>
+                <div class="voice-btn-row">
+                    <button id="btn-mic" class="hud-mic-btn">
+                        <div class="mic-pulse-ring"></div>
+                        <span id="mic-icon">🎙️</span>
+                        <span id="mic-text">HLASOVÝ VSTUP</span>
+                    </button>
+                    <button id="btn-wake-toggle" class="proto-btn" title="Pasivní poslech na oslovení 'Jarvisi'">
+                        <span class="btn-bracket">[</span> 👂 WAKE "JARVISI": OFF <span class="btn-bracket">]</span>
+                    </button>
+                </div>
                 <div class="voice-status-bar">
                     <span id="voice-indicator">STISKNĚTE PRO DIKTOVÁNÍ NEBO PIŠTE NÍŽE</span>
                 </div>

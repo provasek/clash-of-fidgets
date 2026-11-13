@@ -1450,38 +1450,77 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function hslToHex(h, s = 100, l = 50) {
+        s /= 100; l /= 100;
+        const a = s * Math.min(l, 1 - l);
+        const f = n => {
+            const k = (n + h / 30) % 12;
+            const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+            return Math.round(255 * color).toString(16).padStart(2, '0');
+        };
+        return `#${f(0)}${f(8)}${f(4)}`;
+    }
+
+    const hueActiveSwatch = document.getElementById("hue-active-swatch");
+    const hueColorPicker = document.getElementById("hue-color-picker");
+    const hueSpectrumSlider = document.getElementById("hue-spectrum-slider");
+    const hueBriSlider = document.getElementById("hue-bri-slider");
+    const hueBriVal = document.getElementById("hue-bri-val");
+
     document.querySelectorAll("[data-hue-preset]").forEach(btn => {
         btn.addEventListener("click", (e) => {
             e.stopPropagation();
             getAudioContext();
             playTone(760, 'sine', 0.08, 0.08);
+            document.querySelectorAll("[data-hue-preset]").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
             const preset = btn.dataset.huePreset;
-            const briEl = document.getElementById("hue-bri-slider");
-            const bri = briEl ? parseInt(briEl.value, 10) : 200;
+            const bri = hueBriSlider ? parseInt(hueBriSlider.value, 10) : 200;
+            const presetColors = { warm: "#ffb86c", cool: "#e0f4ff", jarvis: "#00f3ff", ironman: "#ff3300", purple: "#a855f7" };
+            if (presetColors[preset] && hueActiveSwatch) {
+                hueActiveSwatch.style.background = presetColors[preset];
+                if (hueColorPicker) hueColorPicker.value = presetColors[preset];
+            }
             sendHueControl(preset === "off" ? { preset } : { preset, bri });
         });
     });
 
-    const hueColorPicker = document.getElementById("hue-color-picker");
+    let hueSpecTimer = null;
+    if (hueSpectrumSlider) {
+        hueSpectrumSlider.addEventListener("input", () => {
+            const hex = hslToHex(parseInt(hueSpectrumSlider.value, 10));
+            if (hueActiveSwatch) hueActiveSwatch.style.background = hex;
+            if (hueColorPicker) hueColorPicker.value = hex;
+            document.querySelectorAll("[data-hue-preset]").forEach(b => b.classList.remove("active"));
+            clearTimeout(hueSpecTimer);
+            hueSpecTimer = setTimeout(() => {
+                const bri = hueBriSlider ? parseInt(hueBriSlider.value, 10) : 200;
+                sendHueControl({ hex, bri });
+            }, 120);
+        });
+    }
+
     let hueColorTimer = null;
     if (hueColorPicker) {
         hueColorPicker.addEventListener("input", () => {
+            if (hueActiveSwatch) hueActiveSwatch.style.background = hueColorPicker.value;
+            document.querySelectorAll("[data-hue-preset]").forEach(b => b.classList.remove("active"));
             clearTimeout(hueColorTimer);
             hueColorTimer = setTimeout(() => {
-                const briEl = document.getElementById("hue-bri-slider");
-                const bri = briEl ? parseInt(briEl.value, 10) : 200;
+                const bri = hueBriSlider ? parseInt(hueBriSlider.value, 10) : 200;
                 sendHueControl({ hex: hueColorPicker.value, bri });
             }, 120);
         });
     }
 
-    const hueBriSlider = document.getElementById("hue-bri-slider");
     let hueBriTimer = null;
     if (hueBriSlider) {
         hueBriSlider.addEventListener("input", () => {
+            const bri = parseInt(hueBriSlider.value, 10);
+            if (hueBriVal) hueBriVal.textContent = `${Math.round((bri / 254) * 100)}%`;
             clearTimeout(hueBriTimer);
             hueBriTimer = setTimeout(() => {
-                sendHueControl({ bri: parseInt(hueBriSlider.value, 10) });
+                sendHueControl({ bri });
             }, 120);
         });
     }
