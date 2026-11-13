@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alchymie Písku — 2D Fyzikální Sandbox</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-icon">⚗️</span>
+        <div>
+          <h1>Alchymie Písku</h1>
+          <p class="subtitle">2D Fyzikální &amp; Chemický Sandbox</p>
+        </div>
+      </div>
+
+      <div class="sim-controls">
+        <button id="btn-play-pause" class="btn btn-primary" title="Mezerník">⏸ Pauza</button>
+        <button id="btn-step" class="btn" title="Další krok">⏭ Krok</button>
+        <button id="btn-clear" class="btn btn-danger" title="Klávesa C">🗑 Vyčistit</button>
+      </div>
+
+      <div class="presets">
+        <span class="label">Scény:</span>
+        <button class="btn btn-preset" data-preset="terrarium">🌿 Terárium</button>
+        <button class="btn btn-preset" data-preset="volcano">🌋 Sopka</button>
+        <button class="btn btn-preset" data-preset="tesla">⚡ Tesla &amp; Prach</button>
+        <button class="btn btn-preset" data-preset="acid">🧪 Kyselina</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="palette-panel">
+        <div class="panel-section">
+          <div class="brush-header">
+            <span class="label">Velikost štětce</span>
+            <span id="brush-size-val" class="mono">4</span>
+          </div>
+          <input id="brush-size" type="range" min="1" max="18" value="4" />
+          <div class="brush-shapes">
+            <button id="shape-circle" class="btn btn-small active">● Kruh</button>
+            <button id="shape-square" class="btn btn-small">■ Čtverec</button>
+          </div>
+        </div>
+
+        <div id="element-groups" class="element-groups"></div>
+      </aside>
+
+      <section class="canvas-stage">
+        <div class="canvas-wrapper">
+          <canvas id="sandbox"></canvas>
+          <div id="cursor-preview" class="cursor-preview"></div>
+        </div>
+
+        <footer class="statusbar">
+          <div class="status-item">
+            <span class="label">Vybráno:</span>
+            <strong id="selected-name">Písek</strong>
+            <span id="selected-desc" class="muted"></span>
+          </div>
+          <div class="status-right">
+            <span class="status-item">Pod kurzorem: <strong id="hover-element" class="mono">Prázdno</strong></span>
+            <span class="status-item">Částic: <strong id="particle-count" class="mono">0</strong></span>
+            <span class="status-item">FPS: <strong id="fps-counter" class="mono">60</strong></span>
+          </div>
+        </footer>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

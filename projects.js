@@ -4,6 +4,19 @@
  */
 const PROJECTS = [
     {
+        id: "alchymie-pisku",
+        title: "Alchymie Písku",
+        category: "games",
+        badge: "⚗️ Fyzikální Sandbox",
+        badgeType: "featured",
+        icon: "⚗️",
+        description: "Interaktivní 2D fyzikální a chemický sandbox (Falling Sand) s 18 prvky — písek, voda, láva, kyselina, olej, střelný prach, elektřina, semínka i sklo s reálnými reakcemi a předpřipravenými scénami.",
+        tags: ["HTML5 Canvas", "JavaScript", "Buněčný automat", "Fyzika"],
+        playUrl: "/projects/alchymie-pisku/",
+        githubUrl: "https://github.com/provasek/alchymie-pisku",
+        featured: true
+    },
+    {
         id: "aetheris",
         title: "Aetheris: Orbitální Kolonie",
         category: "games",
