@@ -1281,9 +1281,20 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     btnSaveConfig.addEventListener("click", async () => {
+        const prevBackend = state.backendUrl || "";
         if (inputBackendUrl) {
             state.backendUrl = inputBackendUrl.value.trim().replace(/\/+$/, "");
             localStorage.setItem("jarvis_backend_url", state.backendUrl);
+        }
+        // If user just connected a new Backend URL (e.g. Cloudflare tunnel), pull its config first without overwriting server values with empty inputs
+        if (state.backendUrl !== prevBackend) {
+            await loadConfig();
+            await fetchWeather();
+            configStatusMsg.className = "config-status-msg success";
+            configStatusMsg.textContent = "Připojeno k backendu a konfigurace načtena!";
+            configStatusMsg.style.display = "block";
+            playProtocolSound();
+            return;
         }
         const apiKey = inputApiKey.value.trim();
         const city = inputCity.value.trim();
@@ -1304,10 +1315,10 @@ document.addEventListener("DOMContentLoaded", () => {
             payload.latitude = lat;
             payload.longitude = lon;
         }
-        if (inputEmailAddress) payload.email_address = emailAddress;
+        if (inputEmailAddress && emailAddress) payload.email_address = emailAddress;
         if (emailPassword) payload.email_app_password = emailPassword;
         if (emailHost) payload.email_imap_host = emailHost;
-        if (inputHueIp) payload.hue_bridge_ip = hueIp;
+        if (inputHueIp && hueIp) payload.hue_bridge_ip = hueIp;
         if (hueUser) payload.hue_username = hueUser;
         if (inputHueGroup && hueGroup) payload.hue_group_id = hueGroup;
         if (inputNewsTopics && newsTopics) payload.news_topics = newsTopics;
