@@ -14,10 +14,30 @@ window.addEventListener('pointerdown', () => audio.init(), { once: true });
 const ui = new UIController(state);
 
 const canvas = document.getElementById('game-canvas');
-const renderer = new SpaceRenderer(canvas, state, (isComet) => {
-  ui.hideTapHint();
+const renderer = new SpaceRenderer(canvas, state, (isComet, isAnomaly = false, isAutoTurret = false) => {
+  if (!isAutoTurret) ui.hideTapHint();
+
+  if (isAnomaly) {
+    const resGain = Math.max(12, Math.floor(15 + state.rates.research * 8));
+    state.data.research += resGain;
+    state.data.eventBoostUntil = Date.now() + 20000;
+    audio.playAchievement();
+    if (navigator.vibrate) navigator.vibrate(22);
+    ui.showToast('🔮', 'Kvantová anomálie!', `+${resGain} 🔬 a 2× produkce na 20s!`);
+    return { credits: 0, ore: 0, research: resGain, isCrit: true };
+  }
+
   const reward = state.getTapReward();
-  const mult = isComet ? 3.5 : 1;
+  let comboMult = 1;
+  if (!isAutoTurret) {
+    const comboInfo = state.registerTapCombo();
+    comboMult = comboInfo.mult;
+    if (comboInfo.triggeredOverdrive) {
+      ui.showToast('🔥', 'OVERDRIVE JÁDRA!', '10× kombo! 2× produkce na 10 sekund!');
+    }
+  }
+
+  const mult = (isComet ? 3.5 : 1) * comboMult;
   const creditsGain = reward.credits * mult;
   const oreGain = reward.ore * mult;
 
@@ -25,16 +45,23 @@ const renderer = new SpaceRenderer(canvas, state, (isComet) => {
   state.data.sectorCredits += creditsGain;
   state.data.lifetimeCredits += creditsGain;
   state.data.ore += oreGain;
-  state.data.totalTaps += 1;
+  if (!isAutoTurret) state.data.totalTaps += 1;
 
   if (isComet && Math.random() < 0.45) {
     state.data.eventBoostUntil = Date.now() + 25000;
     ui.showToast('☄️', 'Zlatá kometa!', 'Aktivován 2× přísun surovin na 25 sekund!');
   }
 
-  audio.playTap(reward.isCrit || isComet);
+  if (!isAutoTurret) {
+    audio.playTap(reward.isCrit || isComet);
+    if ((reward.isCrit || isComet) && navigator.vibrate) {
+      navigator.vibrate(15);
+    }
+  }
   return { credits: creditsGain, ore: oreGain, isCrit: reward.isCrit || isComet };
 });
+
+ui.onPrestige = () => renderer.triggerWarp();
 
 if (earned) {
   ui.showOfflineModal(earned);
@@ -47,6 +74,7 @@ let uiAccumulator = 0;
 let saveAccumulator = 0;
 let achAccumulator = 0;
 let lastUnlockedCount = state.data.modules.lab ? 1 : 0;
+let lastMissionDone = state.getMissionProgress().done;
 
 function gameLoop(now) {
   const dt = Math.min(0.1, (now - lastTime) / 1000);
@@ -67,6 +95,12 @@ function gameLoop(now) {
       (state.data.sectorCredits >= 4000 ? 1 : 0);
     if (currentUnlocked !== lastUnlockedCount) {
       lastUnlockedCount = currentUnlocked;
+      if (ui.activeTab === 'station') ui.renderTab();
+    }
+
+    const mDone = state.getMissionProgress().done;
+    if (mDone !== lastMissionDone) {
+      lastMissionDone = mDone;
       if (ui.activeTab === 'station') ui.renderTab();
     }
   }

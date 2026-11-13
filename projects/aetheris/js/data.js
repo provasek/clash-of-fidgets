@@ -1,18 +1,31 @@
 export const SECTORS = [
-  'Pás Aetheris',
-  'Mlhovina Orion',
-  'Kvantová trhlina',
-  'Soustava Kryon',
-  'Pulzarová brána',
-  'Temný Horizont',
-  'Jádro Andromedy'
+  { name: 'Pás Aetheris', desc: 'Vyvážený sektor (+0 % modifikátor)', mod: {} },
+  { name: 'Mlhovina Orion', desc: 'Solární vítr: +30 % energie ⚡', mod: { energyMult: 1.3 } },
+  { name: 'Kvantová trhlina', desc: 'Anomálie: +35 % výzkumu 🔬', mod: { researchMult: 1.35 } },
+  { name: 'Soustava Kryon', desc: 'Bohaté žíly: +30 % rudy z dronů 🪨', mod: { oreMult: 1.3 } },
+  { name: 'Pulzarová brána', desc: 'Častější zlaté komety ☄️', mod: { cometMult: 1.8 } },
+  { name: 'Temný Horizont', desc: 'Kvantová rezonance: +25 % kreditů 🪙', mod: { creditsMult: 1.25 } },
+  { name: 'Jádro Andromedy', desc: 'Všechny bonusy +20 % ✨', mod: { energyMult: 1.2, researchMult: 1.2, oreMult: 1.2, creditsMult: 1.2 } }
 ];
 
-export function getSectorName(sectorIndex) {
+export function getSectorInfo(sectorIndex) {
   if (sectorIndex < SECTORS.length) {
-    return `Sektor ${sectorIndex + 1}: ${SECTORS[sectorIndex]}`;
+    return {
+      title: `Sektor ${sectorIndex + 1}: ${SECTORS[sectorIndex].name}`,
+      desc: SECTORS[sectorIndex].desc,
+      mod: SECTORS[sectorIndex].mod
+    };
   }
-  return `Sektor ${sectorIndex + 1}: Hluboký vesmír Ω-${sectorIndex - SECTORS.length + 1}`;
+  const cycle = SECTORS[(sectorIndex % (SECTORS.length - 1)) + 1];
+  return {
+    title: `Sektor ${sectorIndex + 1}: Hluboký vesmír Ω-${sectorIndex - SECTORS.length + 1}`,
+    desc: cycle.desc,
+    mod: cycle.mod
+  };
+}
+
+export function getSectorName(sectorIndex) {
+  return getSectorInfo(sectorIndex).title;
 }
 
 export const MODULES = [
@@ -133,6 +146,22 @@ export const RESEARCH_TREE = [
     desc: 'Výzkumné laboratoře generují o +100 % více bodů výzkumu.',
     cost: 750,
     effect: { type: 'moduleMult', target: 'lab', value: 2 }
+  },
+  {
+    id: 'auto_turret',
+    name: 'Autopilot obranné věže',
+    icon: '🎯',
+    desc: 'Stanice každé 2 sekundy sama vystřelí těžební laser na nejbližší asteroid.',
+    cost: 600,
+    effect: { type: 'autoTurret', value: 1 }
+  },
+  {
+    id: 'plasma_recycle',
+    name: 'Recyklace plazmy',
+    icon: '♻️',
+    desc: 'Snižuje spotřebu rudy v plazmových rafineriích o 50 %.',
+    cost: 950,
+    effect: { type: 'oreSave', value: 0.5 }
   },
   {
     id: 'hyper_logistics',
@@ -342,4 +371,15 @@ export const ACHIEVEMENTS = [
     target: 5,
     bonusCredits: 0.30
   }
+];
+
+export const MISSIONS = [
+  { id: 'm_tap_10', title: 'Průzkum pásu', desc: 'Zasáhni 10 asteroidů nebo komet.', stat: 'totalTaps', target: 10, rewardCredits: 120, rewardResearch: 8 },
+  { id: 'm_drone_3', title: 'Automatizace těžby', desc: 'Vlastni alespoň 3× Těžební drony.', moduleId: 'drone', target: 3, rewardCredits: 220, rewardResearch: 15 },
+  { id: 'm_refinery_2', title: 'První tavírna', desc: 'Postav 2× Plazmová rafinerie.', moduleId: 'refinery', target: 2, rewardCredits: 450, rewardResearch: 25 },
+  { id: 'm_tap_40', title: 'Ostrá palba', desc: 'Zasáhni celkem 40 asteroidů.', stat: 'totalTaps', target: 40, rewardCredits: 900, rewardResearch: 45 },
+  { id: 'm_lab_2', title: 'Vědecký tým', desc: 'Postav 2× Výzkumná laboratoř.', moduleId: 'lab', target: 2, rewardCredits: 1800, rewardResearch: 80 },
+  { id: 'm_solar_10', title: 'Solární síť', desc: 'Vlastni 10× Solární křídla.', moduleId: 'solar', target: 10, rewardCredits: 3200, rewardResearch: 130 },
+  { id: 'm_reactor_1', title: 'Jádro budoucnosti', desc: 'Postav 1× Fúzní reaktor.', moduleId: 'reactor', target: 1, rewardCredits: 5500, rewardResearch: 220 },
+  { id: 'm_trade_2', title: 'Kvantový obchod', desc: 'Postav 2× Kvantový obchodní uzel.', moduleId: 'tradehub', target: 2, rewardCredits: 15000, rewardResearch: 450 }
 ];

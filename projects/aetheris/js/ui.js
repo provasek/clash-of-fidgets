@@ -1,4 +1,4 @@
-import { MODULES, RESEARCH_TREE, PRESTIGE_UPGRADES, ACHIEVEMENTS, getSectorName } from './data.js';
+import { MODULES, RESEARCH_TREE, PRESTIGE_UPGRADES, ACHIEVEMENTS, getSectorName, getSectorInfo } from './data.js';
 import { formatNum } from './state.js';
 import { audio } from './audio.js';
 
@@ -126,12 +126,26 @@ export class UIController {
         return;
       }
 
+      const claimBtn = e.target.closest('[data-claim-mission]');
+      if (claimBtn) {
+        const claimed = this.state.claimMission();
+        if (claimed) {
+          audio.playAchievement();
+          if (navigator.vibrate) navigator.vibrate(20);
+          this.showToast('🎯', `Mise splněna: ${claimed.title}`, `+${formatNum(claimed.rewardCredits)} 🪙  +${formatNum(claimed.rewardResearch)} 🔬`);
+          this.renderTab();
+          this.updateHUD();
+        }
+        return;
+      }
+
       const jumpBtn = e.target.closest('#btn-do-prestige');
       if (jumpBtn) {
         const gain = this.state.doPrestige();
         if (gain > 0) {
           audio.setSector(this.state.data.sector);
           audio.playPrestige();
+          if (this.onPrestige) this.onPrestige();
           this.showToast('🌌', 'Hyperprostorový skok!', `Získáno +${formatNum(gain)} ✨ Temné hmoty`);
           this.renderTab();
           this.updateHUD();
@@ -171,11 +185,16 @@ export class UIController {
     this.els.btnMusic.style.opacity = d.musicEnabled ? '1' : '0.45';
     this.els.btnSound.textContent = d.soundEnabled ? '🔊' : '🔇';
 
-    // Událost boost
-    const remMs = (d.eventBoostUntil || 0) - Date.now();
+    // Událost / Overdrive / Kombo boost
+    const now = Date.now();
+    const remMs = Math.max((d.eventBoostUntil || 0) - now, (d.overdriveUntil || 0) - now);
+    const comboMult = this.state.getComboMultiplier();
     if (remMs > 0) {
       this.els.btnEventBoost.classList.remove('hidden');
-      this.els.eventTimer.textContent = `${Math.ceil(remMs / 1000)}s`;
+      this.els.eventTimer.textContent = `${this.state.getEventMultiplier()}× ${Math.ceil(remMs / 1000)}s`;
+    } else if (comboMult > 1) {
+      this.els.btnEventBoost.classList.remove('hidden');
+      this.els.eventTimer.textContent = `Kombo ${comboMult}×`;
     } else {
       this.els.btnEventBoost.classList.add('hidden');
     }
@@ -247,6 +266,32 @@ export class UIController {
 
   renderStationTab() {
     const d = this.state.data;
+    const mission = this.state.getCurrentMission();
+    const mProg = this.state.getMissionProgress(mission);
+    const sectorInfo = getSectorInfo(d.sector);
+
+    const missionCard = `
+      <div class="item-card ${mProg.done ? 'completed' : ''}" style="border-color: rgba(56, 189, 248, 0.3);">
+        <div class="item-icon-box">🎯</div>
+        <div class="item-body">
+          <div class="item-title">Mise: ${mission.title}</div>
+          <div class="item-desc">${mission.desc} (${formatNum(mProg.cur)} / ${formatNum(mProg.target)})</div>
+          <div class="item-stats">+${formatNum(mission.rewardCredits)} 🪙 • +${formatNum(mission.rewardResearch)} 🔬</div>
+        </div>
+        ${
+          mProg.done
+            ? `<button class="buy-btn" data-claim-mission="1" style="border-color: var(--accent-emerald); background: rgba(16,185,129,0.22);">
+                 <span>Vyzvednout</span>
+                 <span class="buy-qty">Odměna!</span>
+               </button>`
+            : `<span style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); padding: 0 6px;">${Math.round((mProg.cur / mProg.target) * 100)}%</span>`
+        }
+      </div>
+      <div style="font-size: 0.7rem; color: var(--text-muted); padding: 0 4px;">
+        🌌 ${sectorInfo.desc}
+      </div>
+    `;
+
     const html = MODULES.map((mod) => {
       const count = d.modules[mod.id] || 0;
       const locked = d.sectorCredits < mod.unlockAt && count === 0;
@@ -292,7 +337,7 @@ export class UIController {
       `;
     }).join('');
 
-    this.els.drawerContent.innerHTML = html;
+    this.els.drawerContent.innerHTML = missionCard + html;
   }
 
   renderResearchTab() {

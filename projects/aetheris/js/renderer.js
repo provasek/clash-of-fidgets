@@ -25,6 +25,9 @@ export class SpaceRenderer {
     this.floatingTexts = [];
     this.lasers = [];
     this.shuttles = [];
+    this.anomalies = [];
+    this.turretTimer = 0;
+    this.warpFlash = 0;
 
     this.initStars();
     this.resize();
@@ -73,8 +76,25 @@ export class SpaceRenderer {
     });
   }
 
+  triggerWarp() {
+    this.warpFlash = 1.0;
+    this.spawnBurst(this.width / 2, this.height / 2, '#c084fc', 30);
+  }
+
   handleTap(x, y) {
-    // Zkontroluj zásah asteroidu (s velkorysým mobilním poloměrem)
+    // 1. Zkontroluj zásah kvantové anomálie / zásobovací kapsle
+    for (let i = this.anomalies.length - 1; i >= 0; i--) {
+      const an = this.anomalies[i];
+      if (Math.hypot(x - an.x, y - an.y) <= an.radius + 18) {
+        this.spawnBurst(an.x, an.y, '#c084fc', 22);
+        const res = this.onAsteroidTap(false, true);
+        this.addFloatingText(an.x, an.y - 12, `ANOMÁLIE! +${formatNum(res.research || 15)} 🔬`, '#c084fc', true);
+        this.anomalies.splice(i, 1);
+        return;
+      }
+    }
+
+    // 2. Zkontroluj zásah asteroidu (s velkorysým mobilním poloměrem)
     for (let i = this.asteroids.length - 1; i >= 0; i--) {
       const a = this.asteroids[i];
       const dx = x - a.x;
@@ -279,6 +299,51 @@ export class SpaceRenderer {
       ft.life -= dt;
       if (ft.life <= 0) this.floatingTexts.splice(i, 1);
     }
+
+    // Anomálie / zásobovací kapsle
+    if (this.anomalies.length === 0 && Math.random() < dt * 0.045) {
+      const margin = 45;
+      let ax = margin + Math.random() * Math.max(40, this.width - margin * 2);
+      let ay = margin + Math.random() * Math.max(40, this.height - margin * 2);
+      if (Math.hypot(ax - this.width / 2, ay - this.height / 2) < 70) {
+        ax = ax < this.width / 2 ? 42 : this.width - 42;
+      }
+      this.anomalies.push({ x: ax, y: ay, radius: 15, life: 12 });
+    }
+    for (let i = this.anomalies.length - 1; i >= 0; i--) {
+      this.anomalies[i].life -= dt;
+      if (this.anomalies[i].life <= 0) this.anomalies.splice(i, 1);
+    }
+
+    // Autopilot obranné věže (tech)
+    if (this.state.hasTech('auto_turret') && this.asteroids.length > 0) {
+      this.turretTimer += dt;
+      if (this.turretTimer >= 2.0) {
+        this.turretTimer = 0;
+        const target = this.asteroids[0];
+        this.lasers.push({
+          x1: this.width / 2,
+          y1: this.height / 2,
+          x2: target.x,
+          y2: target.y,
+          life: 0.22,
+          maxLife: 0.22,
+          color: '#34d399'
+        });
+        this.spawnBurst(target.x, target.y, '#34d399', 8);
+        const reward = this.onAsteroidTap(target.isComet, false, true);
+        this.addFloatingText(target.x, target.y - 8, `+${formatNum(reward.credits)} 🪙`, '#34d399', false);
+        target.hp -= 1;
+        if (target.hp <= 0) {
+          this.asteroids.shift();
+          this.spawnAsteroid(false);
+        }
+      }
+    }
+
+    if (this.warpFlash > 0) {
+      this.warpFlash = Math.max(0, this.warpFlash - dt * 1.4);
+    }
   }
 
   draw() {
@@ -344,7 +409,35 @@ export class SpaceRenderer {
     }
 
     // 5. Stanice a její moduly
+    if (Date.now() < (this.state.data.overdriveUntil || 0)) {
+      const auraGrad = ctx.createRadialGradient(cx, cy, 18, cx, cy, 78);
+      auraGrad.addColorStop(0, 'rgba(251, 191, 36, 0.28)');
+      auraGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = auraGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 78, 0, Math.PI * 2);
+      ctx.fill();
+    }
     this.drawStation(ctx, cx, cy);
+
+    // 5b. Kvantové anomálie
+    for (const an of this.anomalies) {
+      ctx.save();
+      ctx.translate(an.x, an.y);
+      ctx.rotate(this.time * 2.2);
+      ctx.shadowColor = '#c084fc';
+      ctx.shadowBlur = 16;
+      ctx.strokeStyle = '#e879f9';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, an.radius, 0, Math.PI * 1.5);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(192, 132, 252, 0.35)';
+      ctx.beginPath();
+      ctx.arc(0, 0, an.radius * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
 
     // 6. Autonomní drony
     this.drawDrones(ctx, cx, cy);
@@ -427,6 +520,12 @@ export class SpaceRenderer {
       ctx.shadowBlur = 4;
       ctx.fillText(ft.text, ft.x, ft.y);
       ctx.restore();
+    }
+
+    // 11. Hyperprostorový záblesk
+    if (this.warpFlash > 0) {
+      ctx.fillStyle = `rgba(192, 132, 252, ${this.warpFlash * 0.45})`;
+      ctx.fillRect(0, 0, w, h);
     }
   }
 

@@ -1,4 +1,4 @@
-import { MODULES, RESEARCH_TREE, PRESTIGE_UPGRADES, ACHIEVEMENTS } from './data.js';
+import { MODULES, RESEARCH_TREE, PRESTIGE_UPGRADES, ACHIEVEMENTS, MISSIONS, getSectorInfo } from './data.js';
 
 const SAVE_KEY = 'aetheris_tycoon_save_v1';
 
@@ -38,10 +38,12 @@ export function createInitialState() {
     researched: [],
     prestigeLevels,
     achievements: [],
+    missionIndex: 0,
     soundEnabled: true,
     musicEnabled: true,
     lastSavedAt: Date.now(),
     eventBoostUntil: 0,
+    overdriveUntil: 0,
     eventName: ''
   };
 }
@@ -49,6 +51,8 @@ export function createInitialState() {
 export class GameState {
   constructor() {
     this.data = createInitialState();
+    this.combo = 0;
+    this.comboExpiresAt = 0;
     this.rates = {
       credits: 0,
       ore: 0,
@@ -162,12 +166,46 @@ export class GameState {
   }
 
   getEventMultiplier() {
-    return Date.now() < (this.data.eventBoostUntil || 0) ? 2 : 1;
+    const now = Date.now();
+    let mult = 1;
+    if (now < (this.data.eventBoostUntil || 0)) mult *= 2;
+    if (now < (this.data.overdriveUntil || 0)) mult *= 2;
+    return mult;
+  }
+
+  getComboMultiplier() {
+    if (Date.now() > this.comboExpiresAt) {
+      this.combo = 0;
+      return 1;
+    }
+    if (this.combo >= 10) return 3;
+    if (this.combo >= 6) return 2;
+    if (this.combo >= 3) return 1.5;
+    return 1;
+  }
+
+  registerTapCombo() {
+    const now = Date.now();
+    if (now > this.comboExpiresAt) {
+      this.combo = 1;
+    } else {
+      this.combo += 1;
+    }
+    this.comboExpiresAt = now + 2200;
+
+    let triggeredOverdrive = false;
+    if (this.combo === 10) {
+      this.data.overdriveUntil = now + 10000;
+      triggeredOverdrive = true;
+    }
+    return { combo: this.combo, mult: this.getComboMultiplier(), triggeredOverdrive };
   }
 
   getGlobalCreditsMultiplier() {
+    const sectorMod = getSectorInfo(this.data.sector).mod;
     let mult = this.getDarkMatterMultiplier() * this.getAchievementBonus() * this.getOverclockMultiplier() * this.getEventMultiplier();
     if (this.hasTech('hyper_logistics')) mult *= 1.5;
+    if (sectorMod.creditsMult) mult *= sectorMod.creditsMult;
     // Mírný sektorový bonus za postup
     mult *= 1 + this.data.sector * 0.2;
     return mult;
@@ -205,7 +243,11 @@ export class GameState {
   recalculateRates() {
     let energyProd = 0;
     let energyUse = 0;
-    const energyTechMult = this.hasTech('solar_nano') ? 1.35 : 1;
+    const sectorMod = getSectorInfo(this.data.sector).mod;
+    const energyTechMult = (this.hasTech('solar_nano') ? 1.35 : 1) * (sectorMod.energyMult || 1);
+    const oreSaveMult = this.hasTech('plasma_recycle') ? 0.5 : 1;
+    const sectorOreMult = sectorMod.oreMult || 1;
+    const sectorResMult = sectorMod.researchMult || 1;
 
     for (const mod of MODULES) {
       const count = this.data.modules[mod.id] || 0;
@@ -237,10 +279,10 @@ export class GameState {
       const modMult = this.getModuleMultiplier(mod.id);
       const eff = mod.energyDelta >= 0 ? 1 : efficiency;
       if (mod.outputs.ore) {
-        rawOreProd += mod.outputs.ore * count * modMult * eff * overclock * this.getDarkMatterMultiplier();
+        rawOreProd += mod.outputs.ore * count * modMult * eff * overclock * this.getDarkMatterMultiplier() * sectorOreMult;
       }
       if (mod.oreInput) {
-        rawOreUse += mod.oreInput * count * eff * 0.4;
+        rawOreUse += mod.oreInput * count * eff * 0.4 * oreSaveMult;
       }
     }
     const oreStarved = this.data.ore <= 0.1 && rawOreProd < rawOreUse;
@@ -256,13 +298,13 @@ export class GameState {
         creditsRate += mod.outputs.credits * count * modMult * eff * oreFactor * globalMult;
       }
       if (mod.outputs.ore) {
-        oreRate += mod.outputs.ore * count * modMult * eff * overclock * this.getDarkMatterMultiplier();
+        oreRate += mod.outputs.ore * count * modMult * eff * overclock * this.getDarkMatterMultiplier() * sectorOreMult;
       }
       if (mod.outputs.research) {
-        researchRate += mod.outputs.research * count * modMult * eff * overclock;
+        researchRate += mod.outputs.research * count * modMult * eff * overclock * sectorResMult;
       }
       if (mod.oreInput) {
-        oreRate -= mod.oreInput * count * eff * 0.4;
+        oreRate -= mod.oreInput * count * eff * 0.4 * oreSaveMult;
       }
     }
 
@@ -394,6 +436,40 @@ export class GameState {
       return this.data.researched.length;
     }
     return this.data[ach.stat] || 0;
+  }
+
+  getCurrentMission() {
+    const idx = this.data.missionIndex || 0;
+    if (idx < MISSIONS.length) return MISSIONS[idx];
+    const loop = idx - MISSIONS.length + 1;
+    return {
+      id: `m_endless_${idx}`,
+      title: `Zakázka sektoru #${loop}`,
+      desc: `Nashromáždi v sektoru celkem ${formatNum(25000 * Math.pow(1.7, loop))} 🪙.`,
+      stat: 'sectorCredits',
+      target: Math.floor(25000 * Math.pow(1.7, loop)),
+      rewardCredits: Math.floor(4000 * Math.pow(1.6, loop)),
+      rewardResearch: Math.floor(150 * Math.pow(1.35, loop))
+    };
+  }
+
+  getMissionProgress(m = this.getCurrentMission()) {
+    const cur = m.moduleId ? (this.data.modules[m.moduleId] || 0) : (this.data[m.stat] || 0);
+    return { cur: Math.min(m.target, cur), target: m.target, done: cur >= m.target };
+  }
+
+  claimMission() {
+    const m = this.getCurrentMission();
+    const prog = this.getMissionProgress(m);
+    if (!prog.done) return null;
+
+    this.data.credits += m.rewardCredits;
+    this.data.sectorCredits += m.rewardCredits;
+    this.data.lifetimeCredits += m.rewardCredits;
+    this.data.research += m.rewardResearch;
+    this.data.missionIndex = (this.data.missionIndex || 0) + 1;
+    this.recalculateRates();
+    return m;
   }
 
   checkAchievements() {
