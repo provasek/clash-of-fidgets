@@ -4,6 +4,19 @@
  */
 const PROJECTS = [
     {
+        id: "monster-quest",
+        title: "Monster Quest: Verdant Version",
+        category: "games",
+        badge: "🎮 Retro RPG",
+        badgeType: "featured",
+        icon: "🐾",
+        description: "Klasické retro RPG ve stylu kapesních konzolí Nintendo s 21 příšerkami, evolucemi, tahovými souboji, 12 typy, Shiny variantami, cyklem dne a noci, arénou i 8-bit chiptune hudbou.",
+        tags: ["HTML5 Canvas", "ES Modules", "Web Audio API", "Retro RPG"],
+        playUrl: "/projects/monster-quest/",
+        githubUrl: "https://github.com/provasek/monster-quest",
+        featured: true
+    },
+    {
         id: "alchymie-pisku",
         title: "Alchymie Písku",
         category: "games",

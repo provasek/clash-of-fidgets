@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MONSTER QUEST: Verdant Version</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="top-bar">
+      <div class="brand">
+        <span class="dot"></span>
+        <h1>MONSTER QUEST <small>Verdant Version</small></h1>
+      </div>
+      <div class="top-actions">
+        <button id="btn-sound" class="pill-btn" title="Zvuk (M)">🔊 Zvuk: ZAP</button>
+        <button id="btn-speed" class="pill-btn" title="Rychlost (F)">⚡ 1x</button>
+        <button id="btn-bezel" class="pill-btn" title="Režim zobrazení">🎮 Konzole</button>
+      </div>
+    </header>
+
+    <main class="console-wrapper" id="console-wrapper">
+      <div class="handheld-body">
+        <div class="screen-bezel">
+          <div class="bezel-header">
+            <span class="led" id="power-led"></span>
+            <span class="bezel-title">NINTY-POCKET COLOR</span>
+            <span class="time-badge" id="time-badge">☀️ DEN</span>
+          </div>
+          <div class="canvas-container">
+            <canvas id="game-canvas" width="480" height="360"></canvas>
+          </div>
+        </div>
+
+        <div class="controls-deck">
+          <div class="dpad" aria-label="D-Pad">
+            <button class="dpad-btn up" data-key="ArrowUp">▲</button>
+            <button class="dpad-btn left" data-key="ArrowLeft">◀</button>
+            <div class="dpad-center"></div>
+            <button class="dpad-btn right" data-key="ArrowRight">▶</button>
+            <button class="dpad-btn down" data-key="ArrowDown">▼</button>
+          </div>
+
+          <div class="center-pills">
+            <button class="sys-btn" data-key="Shift">SELECT / BĚH</button>
+            <button class="sys-btn" data-key="m">START / MENU</button>
+          </div>
+
+          <div class="ab-buttons">
+            <button class="action-btn b-btn" data-key="x">B</button>
+            <button class="action-btn a-btn" data-key="z">A</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="controls-help">
+      <span><strong>Pohyb:</strong> Šipky / WASD</span>
+      <span><strong>A (Potvrdit):</strong> Z / Enter / Mezerník</span>
+      <span><strong>B (Zpět / Běh):</strong> X / Shift</span>
+      <span><strong>Menu:</strong> M / Esc</span>
+      <span><strong>Rychlost 2x:</strong> F</span>
+    </footer>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
