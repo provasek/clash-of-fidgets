@@ -282,7 +282,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const transcript = finalText.trim();
                 if (state.wakeMode) {
                     if (state.isSpeaking) return;
-                    const wakeRegex = /(?:hej\s+|hey\s+|ahoj\s+)?(?:jarvisi|jarvise|jarvis|jarvy|džárvis[ie]?|džarvis[ie]?|žárvis[ie]?)/i;
+                    const wakeRegex = /(?:hej\s+|hey\s+|ahoj\s+)?(?:jarvis[iey]?|jarvise|jarvy|džárvis[iey]?|džarvis[iey]?|žárvis[iey]?|žarvis[iey]?|chervis[iey]?|červ[ií]s[iey]?|cervis[iey]?|serv[ií]s[iey]?|charvis[iey]?|čárvis[iey]?|carvis[iey]?|žervis[iey]?|džervis[iey]?|garvis[iey]?|yarvis[iey]?|harvis[iey]?)/i;
                     const wm = transcript.match(wakeRegex);
                     if (wm) {
                         const cmdAfter = transcript.slice(wm.index + wm[0].length).replace(/^[\s,.:;!?-]+/, "").trim();
@@ -301,6 +301,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         voiceIndicator.textContent = `WAKE PŘÍKAZ: "${transcript}"`;
                         chatInput.value = transcript;
                         handleUserMessage(transcript);
+                    } else {
+                        voiceIndicator.textContent = `ČEKÁM NA "JARVISI" (zachyceno: "${transcript}")`;
                     }
                 } else {
                     voiceIndicator.textContent = `ZACHYCENO: "${transcript}"`;
