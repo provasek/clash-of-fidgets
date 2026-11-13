@@ -4,6 +4,19 @@
  */
 const PROJECTS = [
     {
+        id: "kartymon",
+        title: "KartyMon Arcade",
+        category: "games",
+        badge: "🎴 Booster Simulátor",
+        badgeType: "featured",
+        icon: "🎴",
+        description: "Arkádový simulátor rozbalování sběratelských kartiček se 160 příšerkami v 6 úrovních vzácnosti, holografickými 3D efekty, Web Audio zvuky, God Packy a sběratelským albem.",
+        tags: ["JavaScript", "SVG Art", "Web Audio API", "3D Holo"],
+        playUrl: "/projects/kartymon/",
+        githubUrl: "https://github.com/provasek/kartymon-arcade",
+        featured: true
+    },
+    {
         id: "monster-quest",
         title: "Monster Quest: Verdant Version",
         category: "games",

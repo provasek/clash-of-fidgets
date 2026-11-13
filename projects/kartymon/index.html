@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KartyMon Arcade — Simulátor rozbalování kartiček</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="arcade-bg"></div>
+  <canvas id="fx-canvas"></canvas>
+
+  <header class="top-bar">
+    <div class="brand">
+      <div class="brand-logo">KM</div>
+      <div>
+        <h1 class="brand-title">KARTYMON <span class="accent">ARCADE</span></h1>
+        <p class="brand-sub">160 příšerek • 6 vzácností • Sbírej je všechny</p>
+      </div>
+    </div>
+
+    <nav class="main-nav" aria-label="Hlavní navigace">
+      <button class="nav-btn active" data-tab="packs">
+        <span class="nav-icon">🎴</span>
+        <span>Balíčky</span>
+      </button>
+      <button class="nav-btn" data-tab="album">
+        <span class="nav-icon">📖</span>
+        <span>Album</span>
+        <span class="nav-badge" id="nav-album-count">0/160</span>
+      </button>
+      <button class="nav-btn" data-tab="achievements">
+        <span class="nav-icon">🏆</span>
+        <span>Výzvy</span>
+        <span class="nav-badge hidden" id="nav-ach-dot">!</span>
+      </button>
+    </nav>
+
+    <div class="hud-right">
+      <div class="coin-pill" title="Arkáda Mince">
+        <span class="coin-icon">🪙</span>
+        <span id="coin-display">500</span>
+      </div>
+      <button class="icon-btn" id="btn-free-coins" title="Arkáda bonus (+100 mincí)">
+        <span>⚡ +Mince</span>
+      </button>
+      <button class="icon-btn" id="btn-sound" title="Zvuk zapnut/vypnut">🔊</button>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <!-- TAB 1: PACKS & OPENING -->
+    <section id="tab-packs" class="tab-panel active">
+      <div id="pack-shop-view">
+        <div class="section-header">
+          <div>
+            <h2>Vyber si Booster Balíček</h2>
+            <p class="muted">Roztrhni fólii, odhal 5 příšerek a rozšiř své album. Každý balíček má šanci na <strong>GOD PACK</strong>!</p>
+          </div>
+          <div class="quick-stats">
+            <div class="stat-chip">Otevřeno balíčků: <strong id="stat-packs">0</strong></div>
+            <div class="stat-chip">Sebráno karet: <strong id="stat-unique">0 / 160</strong></div>
+          </div>
+        </div>
+
+        <div class="pack-grid" id="pack-grid">
+          <!-- Rendered by JS -->
+        </div>
+
+        <div class="arcade-bonus-bar">
+          <div class="bonus-info">
+            <span class="bonus-tag">ARCADE AUTOMAT</span>
+            <span>Došly mince? Prodej duplikáty v albu nebo klikni na <strong>⚡ +Mince</strong> (zdarma kdykoliv pod 100 mincí, nebo každých 20s).</span>
+          </div>
+          <button class="btn-secondary" id="btn-sell-all-dupes-shop">
+            ♻️ Prodat duplikáty (<span id="shop-dupe-count">0</span>)
+          </button>
+        </div>
+      </div>
+
+      <!-- PACK OPENING STAGE -->
+      <div id="pack-stage-view" class="hidden">
+        <div class="stage-top">
+          <button class="btn-ghost" id="btn-back-to-shop">← Zpět do obchodu</button>
+          <div class="stage-title" id="stage-pack-name">Klasický Booster</div>
+          <div class="stage-actions">
+            <button class="btn-secondary hidden" id="btn-reveal-all">✨ Odhalit vše</button>
+            <button class="btn-primary hidden" id="btn-open-another">🎴 Otevřít další</button>
+          </div>
+        </div>
+
+        <!-- Step 1: Tear the pack -->
+        <div id="tear-zone" class="tear-zone">
+          <div class="pack-wrapper" id="active-pack-visual">
+            <div class="pack-tear-strip" id="pack-tear-strip">
+              <span>✂️ KLIKNI NEBO POTÁHNI PRO ROZTRŽENÍ</span>
+            </div>
+            <div class="pack-body">
+              <div class="pack-shine"></div>
+              <div class="pack-emblem" id="pack-emblem">⚡</div>
+              <div class="pack-label" id="pack-visual-title">CLASSIC BOOSTER</div>
+              <div class="pack-sub">5 KARET UVNITŘ</div>
+            </div>
+          </div>
+          <p class="tear-hint">Klepni na balíček nebo potáhni po horním proužku!</p>
+        </div>
+
+        <!-- Step 2: Reveal 5 cards -->
+        <div id="reveal-zone" class="reveal-zone hidden">
+          <div class="god-pack-banner hidden" id="god-pack-banner">
+            🌈✨ GOD PACK! VŠECHNY KARTY JSOU VZÁCNÉ+ ✨🌈
+          </div>
+          <div class="reveal-cards-row" id="reveal-cards-row">
+            <!-- 5 card slots rendered by JS -->
+          </div>
+          <div class="reveal-summary hidden" id="reveal-summary">
+            <span id="reveal-summary-text"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: ALBUM / BINDER -->
+    <section id="tab-album" class="tab-panel">
+      <div class="album-header">
+        <div>
+          <h2>Sběratelské Album <span class="accent">(160 karet)</span></h2>
+          <div class="progress-wrap">
+            <div class="progress-bar">
+              <div class="progress-fill" id="album-progress-fill" style="width: 0%"></div>
+            </div>
+            <span class="progress-text" id="album-progress-text">0 / 160 (0%)</span>
+          </div>
+        </div>
+
+        <div class="album-actions">
+          <button class="btn-secondary" id="btn-sell-all-dupes">
+            ♻️ Prodat všechny duplikáty (<span id="album-dupe-value">0</span> 🪙)
+          </button>
+          <div class="view-toggle">
+            <button class="toggle-btn active" data-view="binder" title="Pořadač (9 karet na stránku)">📖 Pořadač</button>
+            <button class="toggle-btn" data-view="grid" title="Mřížka všech karet">⊞ Mřížka</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="rarity-summary-strip" id="rarity-summary-strip">
+        <!-- Populated by JS -->
+      </div>
+
+      <div class="album-filters">
+        <input type="search" id="filter-search" placeholder="Hledat jméno nebo #číslem..." />
+        <select id="filter-owned">
+          <option value="all">Všechny karty (160)</option>
+          <option value="owned">Jen vlastněné</option>
+          <option value="missing">Jen chybějící</option>
+        </select>
+        <select id="filter-element">
+          <option value="all">Všechny živly</option>
+          <option value="fire">🔥 Oheň</option>
+          <option value="water">💧 Voda</option>
+          <option value="nature">🌿 Příroda</option>
+          <option value="electric">⚡ Blesk</option>
+          <option value="shadow">🌑 Stín</option>
+          <option value="crystal">💎 Krystal</option>
+          <option value="wind">🌪️ Vítr</option>
+          <option value="cosmic">🌌 Kosmos</option>
+        </select>
+        <select id="filter-rarity">
+          <option value="all">Všechny vzácnosti</option>
+          <option value="common">Běžná (Common)</option>
+          <option value="uncommon">Neobvyklá (Uncommon)</option>
+          <option value="rare">Vzácná (Rare)</option>
+          <option value="epic">Epická (Epic)</option>
+          <option value="mythic">Mýtická (Mythic)</option>
+          <option value="secret">Tajná (Secret)</option>
+        </select>
+      </div>
+
+      <div class="binder-controls" id="binder-controls">
+        <button class="btn-secondary" id="btn-prev-page">◀ Předchozí strana</button>
+        <span class="page-indicator" id="page-indicator">Strana 1 / 18</span>
+        <button class="btn-secondary" id="btn-next-page">Další strana ▶</button>
+      </div>
+
+      <div class="album-grid binder-mode" id="album-grid">
+        <!-- Cards rendered by JS -->
+      </div>
+    </section>
+
+    <!-- TAB 3: ACHIEVEMENTS -->
+    <section id="tab-achievements" class="tab-panel">
+      <div class="section-header">
+        <div>
+          <h2>Arkáda Výzvy &amp; Odměny</h2>
+          <p class="muted">Plň sběratelské milníky a získávej velké odměny v mincích.</p>
+        </div>
+        <button class="btn-danger-outline" id="btn-reset-save">🗑️ Resetovat postup</button>
+      </div>
+      <div class="achievements-grid" id="achievements-grid">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+  </main>
+
+  <!-- 3D CARD INSPECT MODAL -->
+  <div id="card-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close" aria-label="Zavřít">✕</button>
+      <div class="modal-body">
+        <div class="modal-card-stage" id="modal-card-stage">
+          <!-- 3D tiltable card inserted here -->
+        </div>
+        <div class="modal-info">
+          <div class="modal-badges" id="modal-badges"></div>
+          <h3 id="modal-name">Jméno</h3>
+          <p class="modal-lore" id="modal-lore"></p>
+          <div class="modal-stats" id="modal-stats"></div>
+          <div class="modal-evo" id="modal-evo"></div>
+          <div class="modal-ownership">
+            <span>Vlastníš: <strong id="modal-owned-count">0×</strong></span>
+            <button class="btn-secondary hidden" id="modal-sell-dupe">
+              ♻️ Prodat 1 duplikát (+<span id="modal-sell-price">0</span> 🪙)
+            </button>
+          </div>
+          <p class="tilt-tip">💡 Najeď myší nebo prstem přes kartu pro 3D holografický efekt</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="js/audio.js"></script>
+  <script src="js/cards.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
