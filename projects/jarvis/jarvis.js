@@ -1525,6 +1525,33 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    const btnSystemUpdate = document.getElementById("btn-system-update");
+    if (btnSystemUpdate) {
+        btnSystemUpdate.addEventListener("click", async () => {
+            getAudioContext();
+            playTone(760, 'sine', 0.08, 0.08);
+            btnSystemUpdate.disabled = true;
+            btnSystemUpdate.textContent = "↻ ...";
+            try {
+                const res = await fetch(apiUrl("/api/system/update"), {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({})
+                });
+                const data = await res.json();
+                if (data.message) appendMessage("jarvis", data.message);
+                if (data.updated) {
+                    setTimeout(() => window.location.reload(), 2200);
+                }
+            } catch (err) {
+                appendMessage("jarvis", "Nepodařilo se zkontrolovat aktualizace.");
+            } finally {
+                btnSystemUpdate.disabled = false;
+                btnSystemUpdate.textContent = "↻ UPDATE";
+            }
+        });
+    }
+
     document.querySelectorAll(".scene-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
             e.stopPropagation();
